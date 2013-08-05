@@ -234,24 +234,18 @@ namespace Linq2Oracle {
         public readonly string GroupKeySql;
         readonly Table.Info _tableInfo;
         Dictionary<PropertyInfo, DbColumn> _memberMap;
-        DbColumn _singleKey;
 
         GroupingKeySelector(Table.Info tableInfo, LambdaExpression keySelector) {
             this._tableInfo = tableInfo;
             this.KeySelectorExpression = keySelector;
             base.Visit(keySelector.Body);
 
-            if (_memberMap == null)
-                GroupKeySql = _singleKey.TableQuotesColumnName;
-            else
-                GroupKeySql = string.Join(",", _memberMap.Values.Select(c => c.TableQuotesColumnName).ToArray());
+            GroupKeySql = string.Join(",", _memberMap.Values.Select(c => c.TableQuotesColumnName).ToArray());
 
             this._tableInfo = null;
         }
 
         internal DbColumn GetColumn(PropertyInfo property) {
-            if (_memberMap == null)
-                return _singleKey;
             return _memberMap[property];
         }
 
@@ -260,11 +254,6 @@ namespace Linq2Oracle {
         }
 
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey) {
-            if (_memberMap == null) {
-                if (groupKey == null)
-                    return new Predicate((sql, param) => sql.Append(_singleKey.TableQuotesColumnName).Append(" IS NULL"));
-                return new Predicate((sql, param) => sql.Append(_singleKey.TableQuotesColumnName).Append(" = ").AppendParam(param, _singleKey.DbType, _singleKey.Size, groupKey.ToDbValue()));
-            }
             return new Predicate((sql, param) => {
                 int i = 0;
                 foreach (var c in _memberMap.Values) {
@@ -306,7 +295,10 @@ namespace Linq2Oracle {
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
 
             var c = this._tableInfo.DbColumnMap[m.Member.Name];
-            _singleKey = new DbColumn((PropertyInfo)m.Member, c);
+            _memberMap = new Dictionary<PropertyInfo, DbColumn>
+            {
+                {(PropertyInfo)m.Member , new DbColumn((PropertyInfo)m.Member, c)}
+            };
             return m;
         }
 
