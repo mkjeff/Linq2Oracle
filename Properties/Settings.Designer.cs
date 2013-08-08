@@ -22,15 +22,5 @@ namespace Test.Properties {
                 return defaultInstance;
             }
         }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.SpecialSettingAttribute(global::System.Configuration.SpecialSetting.ConnectionString)]
-        [global::System.Configuration.DefaultSettingValueAttribute("User Id=nspmes;Password=nspmes;data source=//10.100.100.42:1523/F2MESD")]
-        public string DB {
-            get {
-                return ((string)(this["DB"]));
-            }
-        }
     }
 }
