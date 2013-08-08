@@ -179,7 +179,9 @@ namespace Linq2Oracle {
                                 select c).ToArray();
 
                 FixedColumns = t.GetCustomAttributes<ConcurrencyCheckAttribute>()
-                    .Select(fix => DbColumnMap[fix.ColumnName]).Where(c => !c.IsPrimarykey).ToArray();
+                    .Where(c => DbColumnMap.ContainsKey(c.ColumnName))
+                    .Select(fix => DbColumnMap[fix.ColumnName])
+                    .Where(c => !c.IsPrimarykey).ToArray();
 
                 #region INSERT
                 var sb = new StringBuilder(64);

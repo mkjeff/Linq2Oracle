@@ -231,7 +231,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region TakeBySum
-        public QueryContext<T, C, TResult> TakeBySum<NUM>(Func<C, NumberColumn<NUM>> sumBy, Func<C, Column> partitionBy, long sum)
+        public QueryContext<T, C, TResult> TakeBySum<NUM>(Func<C, NumberColumn<NUM>> sumBy, Func<C, DbExpression> partitionBy, long sum)
         {
             if (sum < 0)
                 return this;
@@ -306,20 +306,20 @@ namespace Linq2Oracle
             var orderExpr = string.Join(",", orders.ToArray());
             return string.IsNullOrEmpty(orderExpr) ? this : OrderBy(orderExpr);
         }
-        public QueryContext<T, C, TResult> OrderBy(Func<C, Column> keySelector)
+        public QueryContext<T, C, TResult> OrderBy(Func<C, DbExpression> keySelector)
         {
             return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression);
         }
-        public QueryContext<T, C, TResult> OrderByDescending(Func<C, Column> keySelector)
+        public QueryContext<T, C, TResult> OrderByDescending(Func<C, DbExpression> keySelector)
         {
             return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression + " DESC");
         }
 
-        public QueryContext<T, C, TResult> ThenBy(Func<C, Column> keySelector)
+        public QueryContext<T, C, TResult> ThenBy(Func<C, DbExpression> keySelector)
         {
             return OrderBy(", " + keySelector(EntityTable<T, C>.ColumnsDefine).Expression);
         }
-        public QueryContext<T, C, TResult> ThenByDescending(Func<C, Column> keySelector)
+        public QueryContext<T, C, TResult> ThenByDescending(Func<C, DbExpression> keySelector)
         {
             return OrderBy(", " + keySelector(EntityTable<T, C>.ColumnsDefine).Expression + " DESC");
         }
@@ -480,54 +480,54 @@ namespace Linq2Oracle
             return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
         }
 
-        public string Max(Func<C, Column<string>> selector)
+        public string Max(Func<C, DbExpression<string>> selector)
         {
             return Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")") as string;
         }
-        public string Min(Func<C, Column<string>> selector)
+        public string Min(Func<C, DbExpression<string>> selector)
         {
             return Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")") as string;
         }
 
-        public long? Max(Func<C, Column<long>> selector)
+        public long? Max(Func<C, DbExpression<long>> selector)
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
         }
-        public long? Min(Func<C, Column<long>> selector)
+        public long? Min(Func<C, DbExpression<long>> selector)
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
         }
 
-        public long? Max(Func<C, Column<long?>> selector)
+        public long? Max(Func<C, DbExpression<long?>> selector)
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToInt64(value) : (long?)value;
         }
-        public long? Min(Func<C, Column<long?>> selector)
+        public long? Min(Func<C, DbExpression<long?>> selector)
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
         }
 
-        public DateTime? Max(Func<C, Column<DateTime>> selector)
+        public DateTime? Max(Func<C, DbExpression<DateTime>> selector)
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
         }
-        public DateTime? Min(Func<C, Column<DateTime>> selector)
+        public DateTime? Min(Func<C, DbExpression<DateTime>> selector)
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
         }
 
-        public DateTime? Max(Func<C, Column<DateTime?>> selector)
+        public DateTime? Max(Func<C, DbExpression<DateTime?>> selector)
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
         }
-        public DateTime? Min(Func<C, Column<DateTime?>> selector)
+        public DateTime? Min(Func<C, DbExpression<DateTime?>> selector)
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
             return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
@@ -711,9 +711,9 @@ namespace Linq2Oracle
             foreach (var prop in type.GetProperties())
             {
                 DbColumn c;
-                if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) || !typeof(Column).IsAssignableFrom(prop.PropertyType))
+                if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) || !typeof(DbExpression).IsAssignableFrom(prop.PropertyType))
                     continue;
-                var value = (IColumn)Activator.CreateInstance(prop.PropertyType);
+                var value = (IDbExpression)Activator.CreateInstance(prop.PropertyType);
                 value.SetColumnInfo(c.TableQuotesColumnName, c);
                 prop.SetValue(ColumnsDefine, value, null);
             }

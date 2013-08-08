@@ -30,7 +30,7 @@ namespace Linq2Oracle {
         readonly Table.Info _tableInfo;
         readonly Dictionary<object, Expression> _valueGetters;//store column value getter expression 
 
-        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<IGroupingContext<T, TKey>, TResult>> resultSelector) where T : DbEntity
+        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<ISqlGroupContext<T, TKey>, TResult>> resultSelector) where T : DbEntity
         {
             return _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
         }
@@ -254,9 +254,18 @@ namespace Linq2Oracle {
         }
 
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey) {
-            return new Predicate((sql, param) => {
+            if (_memberMap.Values.Count == 1)
+            {
+                var c = _memberMap.Values.First();
+                if (groupKey == null)
+                    return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
+                return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" = ").AppendParam(param, c.DbType, c.Size, groupKey.ToDbValue()));
+            }
+            return new Predicate((sql, param) =>
+            {
                 int i = 0;
-                foreach (var c in _memberMap.Values) {
+                foreach (var c in _memberMap.Values)
+                {
                     var value = c.GetDbValue(groupKey);
                     if (i++ != 0)
                         sql.Append(" AND ");
@@ -297,7 +306,10 @@ namespace Linq2Oracle {
             var c = this._tableInfo.DbColumnMap[m.Member.Name];
             _memberMap = new Dictionary<PropertyInfo, DbColumn>
             {
-                {(PropertyInfo)m.Member , new DbColumn((PropertyInfo)m.Member, c)}
+                {
+                    (PropertyInfo)m.Member , 
+                    new DbColumn((PropertyInfo)m.Member, this._tableInfo.DbColumnMap[m.Member.Name])
+                }
             };
             return m;
         }

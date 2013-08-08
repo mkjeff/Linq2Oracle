@@ -5,26 +5,26 @@ using System.Linq;
 
 namespace Linq2Oracle
 {
-    interface IColumn
+    interface IDbExpression
     {
         void SetColumnInfo(string expr, IDbMetaInfo column);
     }
 
-    public abstract class Column : IColumn
+    public abstract class DbExpression : IDbExpression
     {
         internal IDbMetaInfo MetaInfo { get; private set; }
         internal OracleDbType DbType { get { return MetaInfo.DbType; } }
         internal int Size { get { return MetaInfo.Size; } }
         internal string Expression { get; private set; }
 
-        void IColumn.SetColumnInfo(string expr, IDbMetaInfo column)
+        void IDbExpression.SetColumnInfo(string expr, IDbMetaInfo column)
         {
             this.MetaInfo = column;
             this.Expression = expr;
         }
     }
 
-    public abstract class Column<T> : Column
+    public class DbExpression<T> : DbExpression
     {
         public virtual Predicate Equals(T value)
         {
@@ -38,51 +38,51 @@ namespace Linq2Oracle
                 ? new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL"))
                 : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, Size, value));
         }
-        public static Predicate operator ==(Column<T> columna, Column<T> columnb)
+        public static Predicate operator ==(DbExpression<T> columna, DbExpression<T> columnb)
         {
             return new Predicate((sql, param) => sql.Append(columna.Expression).Append(" = ").Append(columnb.Expression));
         }
-        public static Predicate operator !=(Column<T> columna, Column<T> columnb)
+        public static Predicate operator !=(DbExpression<T> columna, DbExpression<T> columnb)
         {
             return new Predicate((sql, param) => sql.Append(columna.Expression).Append(" <> ").Append(columnb.Expression));
         }
-        public static Predicate operator ==(Column<T> column, T value)
+        public static Predicate operator ==(DbExpression<T> column, T value)
         {
             return column.Equals(value);
         }
-        public static Predicate operator ==(T value, Column<T> column)
+        public static Predicate operator ==(T value, DbExpression<T> column)
         {
             return column.Equals(value);
         }
-        public static Predicate operator !=(Column<T> column, T value)
+        public static Predicate operator !=(DbExpression<T> column, T value)
         {
             return column.NotEquals(value);
         }
-        public static Predicate operator !=(T value, Column<T> column)
+        public static Predicate operator !=(T value, DbExpression<T> column)
         {
             return column.NotEquals(value);
         }
 
-        public static Predicate operator >(T value, Column<T> column) { return column < value; }
-        public static Predicate operator >(Column<T> column, T value)
+        public static Predicate operator >(T value, DbExpression<T> column) { return column < value; }
+        public static Predicate operator >(DbExpression<T> column, T value)
         {
             if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
             return new Predicate((sql, param) => sql.Append(column.Expression).Append(" > ").AppendParam(param, column.DbType, column.Size, value));
         }
-        public static Predicate operator >=(T value, Column<T> column) { return column <= value; }
-        public static Predicate operator >=(Column<T> column, T value)
+        public static Predicate operator >=(T value, DbExpression<T> column) { return column <= value; }
+        public static Predicate operator >=(DbExpression<T> column, T value)
         {
             if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
             return new Predicate((sql, param) => sql.Append(column.Expression).Append(" >= ").AppendParam(param, column.DbType, column.Size, value));
         }
-        public static Predicate operator <(T value, Column<T> column) { return column > value; }
-        public static Predicate operator <(Column<T> column, T value)
+        public static Predicate operator <(T value, DbExpression<T> column) { return column > value; }
+        public static Predicate operator <(DbExpression<T> column, T value)
         {
             if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
             return new Predicate((sql, param) => sql.Append(column.Expression).Append(" < ").AppendParam(param, column.DbType, column.Size, value));
         }
-        public static Predicate operator <=(T value, Column<T> column) { return column >= value; }
-        public static Predicate operator <=(Column<T> column, T value)
+        public static Predicate operator <=(T value, DbExpression<T> column) { return column >= value; }
+        public static Predicate operator <=(DbExpression<T> column, T value)
         {
             if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
             return new Predicate((sql, param) => sql.Append(column.Expression).Append(" <= ").AppendParam(param, column.DbType, column.Size, value));
@@ -92,7 +92,7 @@ namespace Linq2Oracle
         public Predicate IsNotNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL")); } }
     }
 
-    public sealed class StringColumn : Column<string>
+    public sealed class StringColumn : DbExpression<string>
     {
         public override Predicate Equals(string value)
         {
@@ -162,11 +162,11 @@ namespace Linq2Oracle
         }
     }
 
-    public sealed class EnumColumn<T> : Column<T>
+    public sealed class EnumColumn<T> : DbExpression<T>
     {
     }
 
-    public abstract class RangeColumn<T> : Column<T>
+    public abstract class RangeColumn<T> : DbExpression<T>
     {
         public Predicate Between(T start, T end)
         {

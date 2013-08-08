@@ -8,7 +8,7 @@ using System.Text;
 namespace Linq2Oracle {
     public static class DbSqlHelper {
         #region Internal Members
-        internal static T Init<T>(this T column, string expression, IDbMetaInfo columnInfo) where T : IColumn
+        internal static T Init<T>(this T column, string expression, IDbMetaInfo columnInfo) where T : IDbExpression
         {
             column.SetColumnInfo(expression, columnInfo);
             return column;
@@ -85,6 +85,19 @@ namespace Linq2Oracle {
             return sql;
         }
 
+        internal static StringBuilder AppendHaving(this StringBuilder sql, OracleParameterCollection param, IEnumerable<Predicate> filters)
+        {
+            if (filters.IsEmpty())
+                return sql;
+            int i = 0;
+            foreach (var filter in filters)
+            {
+                sql.Append(i++ == 0 ? " HAVING " : " AND ");
+                filter.Build(sql, param);
+            };
+            return sql;
+        }
+
         internal static StringBuilder AppendOrder(this StringBuilder sql, string order) {
             if (string.IsNullOrEmpty(order))
                 return sql;
@@ -93,11 +106,11 @@ namespace Linq2Oracle {
         #endregion
 
         #region Where Column In (...)
-        public static Predicate In<T>(this Column<T> @this, IEnumerable<T> values)
+        public static Predicate In<T>(this DbExpression<T> @this, IEnumerable<T> values)
         {
             return @this.In(values.ToArray());
         }
-        public static Predicate In<T>(this Column<T> @this, params T[] values)
+        public static Predicate In<T>(this DbExpression<T> @this, params T[] values)
         {
             return new Predicate((sql, param) =>
             {
@@ -131,7 +144,7 @@ namespace Linq2Oracle {
             });
         }
 
-        public static Predicate In<T>(this Column<T> @this, IQueryContext<T> subquery)
+        public static Predicate In<T>(this DbExpression<T> @this, IQueryContext<T> subquery)
         {
             return new Predicate((sql, param) =>
             {
@@ -143,8 +156,8 @@ namespace Linq2Oracle {
         #endregion
         #region Where (Column1,Column2) In (...)
         public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, params Tuple<T1, T2>[] values)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
         {
             return new Predicate((sql, param) =>
             {
@@ -180,15 +193,15 @@ namespace Linq2Oracle {
         }
 
         public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, IEnumerable<Tuple<T1, T2>> values)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
         {
             return columns.In(values.ToArray());
         }
 
         public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, IQueryContext<Tuple<T1, T2>> subquery)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
         {
             return new Predicate((sql, param) =>
             {
@@ -204,9 +217,9 @@ namespace Linq2Oracle {
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
         public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, params Tuple<T1, T2, T3>[] values)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
-            where C3 : Column<T3>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
+            where C3 : DbExpression<T3>
         {
             return new Predicate((sql, param) =>
             {
@@ -247,17 +260,17 @@ namespace Linq2Oracle {
         }
 
         public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, IEnumerable<Tuple<T1, T2, T3>> values)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
-            where C3 : Column<T3>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
+            where C3 : DbExpression<T3>
         {
             return columns.In(values.ToArray());
         }
 
         public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, IQueryContext<Tuple<T1, T2, T3>> subquery)
-            where C1 : Column<T1>
-            where C2 : Column<T2>
-            where C3 : Column<T3>
+            where C1 : DbExpression<T1>
+            where C2 : DbExpression<T2>
+            where C3 : DbExpression<T3>
         {
             return new Predicate((sql, param) =>
             {

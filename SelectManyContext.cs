@@ -44,20 +44,20 @@ namespace Linq2Oracle {
             var orderExpr = string.Join(",", orders.ToArray());
             return string.IsNullOrEmpty(orderExpr) ? this : OrderBy(orderExpr);
         }
-        public SelectManyContext<T, C, TResult, _> OrderBy(Func<_, Column> keySelector)
+        public SelectManyContext<T, C, TResult, _> OrderBy(Func<_, DbExpression> keySelector)
         {
             return OrderBy(keySelector(_transparentId).Expression);
         }
-        public SelectManyContext<T, C, TResult, _> OrderByDescending(Func<_, Column> keySelector)
+        public SelectManyContext<T, C, TResult, _> OrderByDescending(Func<_, DbExpression> keySelector)
         {
             return OrderBy(keySelector(_transparentId).Expression + " DESC");
         }
 
-        public SelectManyContext<T, C, TResult, _> ThenBy(Func<_, Column> keySelector)
+        public SelectManyContext<T, C, TResult, _> ThenBy(Func<_, DbExpression> keySelector)
         {
             return OrderBy(", " + keySelector(_transparentId).Expression);
         }
-        public SelectManyContext<T, C, TResult, _> ThenByDescending(Func<_, Column> keySelector)
+        public SelectManyContext<T, C, TResult, _> ThenByDescending(Func<_, DbExpression> keySelector)
         {
             return OrderBy(", " + keySelector(_transparentId).Expression + " DESC");
         }
