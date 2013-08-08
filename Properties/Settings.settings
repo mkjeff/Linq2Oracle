@@ -9,8 +9,5 @@
 &lt;/SerializableConnectionString&gt;</DesignTimeValue>
       <Value Profile="(Default)">User Id=nspmes;Password=nspmes;data source=//10.100.100.42:1523/F2MESD</Value>
     </Setting>
-    <Setting Name="LoopCount" Type="System.Int32" Scope="Application">
-      <Value Profile="(Default)">100</Value>
-    </Setting>
   </Settings>
 </SettingsFile>

@@ -14,21 +14,22 @@ namespace NewNew
     {
         static void Main(string[] args)
         {
-            using (var conn = new OracleConnection(Settings.Default.DB))
+            using (var conn = new OracleConnection("Connection string"))
             {
                 var db = new DbContext(conn,Console.Out);
 
                 var query = from a in db.N_USER
-                            let b = a.AD_FLAG
-                            where a.LANG == null
                             where a.LOCK_FLAG == Flag.N
-                            select new
-                            {
-                                a.USER_ID,
-                                a.USER_NAME,
-                                a.UPDATE_DATE,
-                                b,
-                            };
+                            group a by a.DEPT_CODE into g
+                            where g.Count() < 50
+                            select g;
+
+                foreach (var g in query)
+                {
+                    Console.WriteLine(g.Key);
+                    foreach (var u in g)
+                        Console.WriteLine(u);
+                }
 
                 // flowing statement will compiler error:
                 //var q = from a in db.N_USER
