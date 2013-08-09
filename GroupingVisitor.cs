@@ -174,7 +174,9 @@ namespace Linq2Oracle {
                 for (int i = 0; i < nex.Arguments.Count; i++)
                 {
                     var arg = nex.Arguments[i] as MemberExpression;
-                    var pi = (PropertyInfo)nex.Members[i];// Lambda.Body.Type.GetProperty(mi.Name.Substring(mi.Name.IndexOf('_') + 1));
+                    /* in .NET 3.5 nex.Members[i] is Property get MethodInfo */
+                    //nex.Members[i].DeclaringType.GetProperty(nex.Members[i].Name.Substring(nex.Members[i].Name.IndexOf('_') + 1));
+                    var pi = (PropertyInfo)nex.Members[i]; 
 
                     Expression getter = null;
                     if (valueGetterMap.TryGetValue(pi, out getter))
@@ -234,6 +236,7 @@ namespace Linq2Oracle {
         public readonly string GroupKeySql;
         readonly Table.Info _tableInfo;
         Dictionary<PropertyInfo, DbColumn> _memberMap;
+        bool _isComplexTypeKey;
 
         GroupingKeySelector(Table.Info tableInfo, LambdaExpression keySelector) {
             this._tableInfo = tableInfo;
@@ -254,12 +257,13 @@ namespace Linq2Oracle {
         }
 
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey) {
-            if (_memberMap.Values.Count == 1)
+            if (_memberMap.Values.Count == 1 && !_isComplexTypeKey)
             {
                 var c = _memberMap.Values.First();
                 if (groupKey == null)
                     return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
-                return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" = ").AppendParam(param, c.DbType, c.Size, groupKey.ToDbValue()));
+                return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" = ")
+                    .AppendParam(param, c.DbType, c.Size, groupKey.ToDbValue())); // here is different with complex type of Key
             }
             return new Predicate((sql, param) =>
             {
@@ -288,14 +292,14 @@ namespace Linq2Oracle {
             _memberMap = nex.Arguments.Cast<MemberExpression>()
                 .Zip(nex.Members, (arg, member) => new
                 {
-                    Property = member as PropertyInfo, /* in 3.5 member is Property get MethodInfo */
+                    Property = member as PropertyInfo, /* in .NET 3.5 member is Property get MethodInfo */
                     ColumnName = arg.Member.Name
                 })
                 .ToDictionary(
                     a => a.Property, 
                     a => new DbColumn(a.Property, this._tableInfo.DbColumnMap[a.ColumnName])
                 );
-
+            _isComplexTypeKey = true;
             return nex;
         }
 
