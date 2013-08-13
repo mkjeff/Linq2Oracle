@@ -111,7 +111,12 @@ namespace Linq2Oracle {
 
         public Number<int> Count()
         {
-            return new Number<int>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+            return new Number<int>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Int32 });
+        }
+
+        public Number<long> LongCount()
+        {
+            return new Number<long>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Int64 });
         }
 
         public Number<decimal> Average<N>(Func<C, Number<N>> selector)

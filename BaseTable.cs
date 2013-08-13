@@ -34,7 +34,7 @@ namespace Linq2Oracle {
             ColumnIndex = columnIndex;
             _attr = attr;
             PropertyInfo = property;
-            _propGetter = (Func<object, object>)propGetterMaker.MakeGenericMethod(property.ReflectedType, property.PropertyType).Invoke(null, new object[] { property });
+            _propGetter = (Func<object, object>)propGetterMaker.MakeGenericMethod(property.DeclaringType, property.PropertyType).Invoke(null, new object[] { property });
         }
         internal readonly PropertyInfo PropertyInfo;
         readonly Func<object, object> _propGetter;
@@ -62,7 +62,7 @@ namespace Linq2Oracle {
         static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi) {
             var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
 
-            Type propertyType = typeof(TProperty);
+            Type propertyType = pi.PropertyType;
 
             if (propertyType.IsEnum)
                 return @this => Enum.GetName(propertyType, getter((T)@this));
