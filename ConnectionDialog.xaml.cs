@@ -15,7 +15,7 @@ using System.IO;
 using LINQPad.Extensibility.DataContext;
 using System.Data;
 
-namespace DataAccessLib.LinqPad
+namespace Linq2Oracle.LinqPad
 {
 	/// <summary>
 	/// Interaction logic for ConnectionDialog.xaml

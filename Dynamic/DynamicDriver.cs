@@ -1,5 +1,4 @@
-﻿using DataAccessLib.LinqPad;
-using Linq2Oracle;
+﻿using Linq2Oracle;
 using LINQPad;
 using LINQPad.Extensibility.DataContext;
 using Microsoft.CSharp;
@@ -16,7 +15,7 @@ using System.Reflection;
 using System.Text;
 using System.Windows.Controls;
 
-namespace DataContextDriverDemo.Astoria
+namespace Linq2Oracle.LinqPad
 {
     /// <summary>
     /// Sample dynamic driver. This lets users connect to an ADO.NET Data Services URI, builds the
@@ -43,6 +42,14 @@ namespace DataContextDriverDemo.Astoria
             return new string[]{
 				"Linq2Oracle",
 			};
+        }
+
+        public override ICustomMemberProvider GetCustomDisplayMemberProvider(object objectToWrite)
+        {
+            var entity = objectToWrite as DbEntity;
+            if (entity != null)
+                return CustomMemberProvider.GetProvider(entity);
+            return base.GetCustomDisplayMemberProvider(objectToWrite);
         }
 
         public override System.Data.Common.DbProviderFactory GetProviderFactory(IConnectionInfo cxInfo)
@@ -113,23 +120,23 @@ namespace DataContextDriverDemo.Astoria
 
         public override bool DisallowQueryDisassembly { get { return true; } }
 
-        public override DateTime? GetLastSchemaUpdate(IConnectionInfo cxInfo)
-        {
-            using (var oracleConnection = (OracleConnection)cxInfo.DatabaseInfo.GetConnection())
-            {
-                oracleConnection.Open();
-                OracleCommand oracleCommand = new OracleCommand("SELECT MAX (LAST_DDL_TIME) FROM SYS.ALL_OBJECTS", oracleConnection);
-                try
-                {
-                    DateTime value = (DateTime)oracleCommand.ExecuteScalar();
-                    return value;
-                }
-                catch
-                {
-                    return null;
-                }
-            }
-        }
+        //public override DateTime? GetLastSchemaUpdate(IConnectionInfo cxInfo)
+        //{
+        //    using (var oracleConnection = (OracleConnection)cxInfo.DatabaseInfo.GetConnection())
+        //    {
+        //        oracleConnection.Open();
+        //        OracleCommand oracleCommand = new OracleCommand("SELECT MAX (LAST_DDL_TIME) FROM SYS.ALL_OBJECTS", oracleConnection);
+        //        try
+        //        {
+        //            DateTime value = (DateTime)oracleCommand.ExecuteScalar();
+        //            return value;
+        //        }
+        //        catch
+        //        {
+        //            return null;
+        //        }
+        //    }
+        //}
 
         public override List<ExplorerItem> GetSchemaAndBuildAssembly(IConnectionInfo cxInfo, AssemblyName assemblyToBuild,
             ref string nameSpace, ref string typeName)
@@ -218,7 +225,7 @@ using Oracle.ManagedDataAccess.Client;");
                     {
                         string strClrType = GetFriendlyName(c.ClrType);
                         source.Append(strClrType).Append(" _").Append(c.ColumnName).AppendLine(";")
-                            .Append("[Column(Size=").Append(c.Length).Append(", DbType=OracleDbType.").Append(c.DbType).Append(", IsNullable = ").Append(c.IsNullable ? "true" : "false").AppendLine(")]")
+                            .Append("[Column(Size=").Append(c.Length).Append(", DbType=OracleDbType.").Append(c.DbType).Append(", IsNullable = ").Append(c.IsNullable ? "true" : "false").Append(", IsPrimarykey = ").Append(c.IsPrimaryKey ? "true" : "false").AppendLine(")]")
                             .Append("public ").Append(GetFriendlyName(c.ClrType)).Append(" ").Append(c.ColumnName).AppendLine("{")
                             .Append("get{ return _").Append(c.ColumnName).AppendLine(";}")
                             .AppendLine("set{ ")
@@ -230,7 +237,7 @@ using Oracle.ManagedDataAccess.Client;");
                             .AppendLine("}")
                             .AppendLine("}");
                     }
-                    source.AppendLine("public sealed class Query {");
+                    source.AppendLine("public sealed class Columns {");
                     foreach (var c in table.Columns)
                     {
                         string strClrType = ToQueryTypeString(c.ClrType);
@@ -247,7 +254,7 @@ using Oracle.ManagedDataAccess.Client;");
 
                 foreach (var table in tables)
                 {
-                    source.Append("public EntityTable<").Append(table.TableName).Append(",").Append(table.TableName).Append(".Query> ").Append(table.TableName).Append(" { get { return new EntityTable<").Append(table.TableName).Append(",").Append(table.TableName).AppendLine(".Query>(this); } }");
+                    source.Append("public EntityTable<").Append(table.TableName).Append(",").Append(table.TableName).Append(".Columns> ").Append(table.TableName).Append(" { get { return new EntityTable<").Append(table.TableName).Append(",").Append(table.TableName).AppendLine(".Columns>(this); } }");
                 }
 
                 source.AppendLine("}");
@@ -305,12 +312,12 @@ using Oracle.ManagedDataAccess.Client;");
         {
             Type nonNullable = GetNonNullType(t);
             if (nonNullable == typeof(string))
-                return "StringColumn";
+                return "Linq2Oracle.String";
             if (nonNullable.IsEnum)
-                return "EnumColumn<" + GetFriendlyName(t) + ">";
+                return "Linq2Oracle.Enum<" + GetFriendlyName(t) + ">";
             if (nonNullable == typeof(DateTime))
-                return "DateTimeColumn<" + GetFriendlyName(t) + ">";
-            return "NumberColumn<" + GetFriendlyName(t) + ">";
+                return "Linq2Oracle.DateTime<" + GetFriendlyName(t) + ">";
+            return "Linq2Oracle.Number<" + GetFriendlyName(t) + ">";
         }
 
         static Type GetNonNullType(Type t)

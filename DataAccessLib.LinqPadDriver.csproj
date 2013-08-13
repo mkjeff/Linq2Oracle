@@ -64,6 +64,7 @@
     <Compile Include="ConnectionDialog.xaml.cs">
       <DependentUpon>ConnectionDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="CustomMemberProvider.cs" />
     <Compile Include="Dynamic\DynamicDriver.cs">
       <SubType>Code</SubType>
     </Compile>

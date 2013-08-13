@@ -5,8 +5,9 @@ using System.Reflection;
 using LINQPad.Extensibility.DataContext;
 using Oracle.ManagedDataAccess.Client;
 using Linq2Oracle;
+using LINQPad;
 
-namespace DataAccessLib.LinqPad
+namespace Linq2Oracle.LinqPad
 {
 	/// <summary>
 	/// This static driver let users query any data source that looks like a Data Context - in other words,
@@ -34,6 +35,14 @@ namespace DataAccessLib.LinqPad
 				"Linq2Oracle",
 			};
 		}
+
+        public override ICustomMemberProvider GetCustomDisplayMemberProvider(object objectToWrite)
+        {
+            var entity = objectToWrite as DbEntity;
+            if (entity != null)
+                return CustomMemberProvider.GetProvider(entity);
+            return base.GetCustomDisplayMemberProvider(objectToWrite);
+        }
 
         public override bool DisallowQueryDisassembly { get { return true; } }
 
