@@ -109,21 +109,21 @@ namespace Linq2Oracle {
         static HavingClause() { }
         internal static readonly HavingClause<T, C> Instance = new HavingClause<T,C>();
 
-        public NumberColumn<int> Count()
+        public Number<int> Count()
         {
-            return new NumberColumn<int>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+            return new Number<int>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
         }
 
-        public NumberColumn<decimal> Average<N>(Func<C, NumberColumn<N>> selector)
+        public Number<decimal> Average<N>(Func<C, Number<N>> selector)
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new NumberColumn<decimal>().Init("AVG(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+            return new Number<decimal>().Init("AVG(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
         }
 
-        public NumberColumn<decimal> Sum<N>(Func<C, NumberColumn<N>> selector)
+        public Number<decimal> Sum<N>(Func<C, Number<N>> selector)
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new NumberColumn<decimal>().Init("SUM(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+            return new Number<decimal>().Init("SUM(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
         }
 
         public DbExpression<TR> Max<TR>(Func<C, DbExpression<TR>> selector)

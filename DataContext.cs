@@ -231,7 +231,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region TakeBySum
-        public QueryContext<T, C, TResult> TakeBySum<NUM>(Func<C, NumberColumn<NUM>> sumBy, Func<C, DbExpression> partitionBy, long sum)
+        public QueryContext<T, C, TResult> TakeBySum<NUM>(Func<C, Number<NUM>> sumBy, Func<C, DbExpression> partitionBy, long sum)
         {
             if (sum < 0)
                 return this;
@@ -458,23 +458,23 @@ namespace Linq2Oracle
         }
         #endregion
         #region Max / Min / Sum / Average
-        public TR? Max<TR>(Func<C, EnumColumn<TR>> selector) where TR : struct
+        public TR? Max<TR>(Func<C, Enum<TR>> selector) where TR : struct
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
             return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
         }
-        public TR? Min<TR>(Func<C, EnumColumn<TR>> selector) where TR : struct
+        public TR? Min<TR>(Func<C, Enum<TR>> selector) where TR : struct
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
             return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
         }
 
-        public TR? Max<TR>(Func<C, EnumColumn<TR?>> selector) where TR : struct
+        public TR? Max<TR>(Func<C, Enum<TR?>> selector) where TR : struct
         {
             var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
             return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
         }
-        public TR? Min<TR>(Func<C, EnumColumn<TR?>> selector) where TR : struct
+        public TR? Min<TR>(Func<C, Enum<TR?>> selector) where TR : struct
         {
             var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
             return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
@@ -533,13 +533,13 @@ namespace Linq2Oracle
             return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
         }
 
-        public decimal? Sum<TNumber>(Func<C, NumberColumn<TNumber>> selector)
+        public decimal? Sum<TNumber>(Func<C, Number<TNumber>> selector)
         {
             var value = Function("SUM(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
             return value != DBNull.Value ? Convert.ToDecimal(value) : (decimal?)null;
         }
 
-        public decimal? Average<TNumber>(Func<C, NumberColumn<TNumber>> selector)
+        public decimal? Average<TNumber>(Func<C, Number<TNumber>> selector)
         {
             var value = (Function("ROUND(AVG(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + "),12)"));
             return value != DBNull.Value ? Convert.ToDecimal(value) : (decimal?)null;

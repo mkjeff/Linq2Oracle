@@ -92,7 +92,7 @@ namespace Linq2Oracle
         public Predicate IsNotNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL")); } }
     }
 
-    public sealed class StringColumn : DbExpression<string>
+    public sealed class String : DbExpression<string>
     {
         public override Predicate Equals(string value)
         {
@@ -124,36 +124,36 @@ namespace Linq2Oracle
             return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, Size, "%" + str + "%"));
         }
 
-        public StringColumn Substring(int startIndex, int length)
+        public String Substring(int startIndex, int length)
         {
-            return new StringColumn().Init("SUBSTR(" + Expression + "," + (startIndex + 1) + "," + length + ")", MetaInfo);
+            return new String().Init("SUBSTR(" + Expression + "," + (startIndex + 1) + "," + length + ")", MetaInfo);
         }
 
-        public StringColumn Substring(int startIndex)
+        public String Substring(int startIndex)
         {
-            return new StringColumn().Init("SUBSTR(" + Expression + "," + (startIndex + 1) + ")", MetaInfo);
+            return new String().Init("SUBSTR(" + Expression + "," + (startIndex + 1) + ")", MetaInfo);
         }
 
-        public StringColumn Trim()
+        public String Trim()
         {
-            return new StringColumn().Init("TRIM(" + Expression + ")", MetaInfo);
+            return new String().Init("TRIM(" + Expression + ")", MetaInfo);
         }
 
-        public StringColumn TrimStart()
+        public String TrimStart()
         {
-            return new StringColumn().Init("LTRIM(" + Expression + ")", MetaInfo);
+            return new String().Init("LTRIM(" + Expression + ")", MetaInfo);
         }
 
-        public StringColumn TrimEnd()
+        public String TrimEnd()
         {
-            return new StringColumn().Init("RTRIM(" + Expression + ")", MetaInfo);
+            return new String().Init("RTRIM(" + Expression + ")", MetaInfo);
         }
 
-        public NumberColumn<int> Length
+        public Number<int> Length
         {
             get
             {
-                return new NumberColumn<int>().Init("LENGTH(" + Expression + ")", new DbExpressionMetaInfo
+                return new Number<int>().Init("LENGTH(" + Expression + ")", new DbExpressionMetaInfo
                 {
                     DbType = OracleDbType.Int32,
                     Size = 4
@@ -162,11 +162,11 @@ namespace Linq2Oracle
         }
     }
 
-    public sealed class EnumColumn<T> : DbExpression<T>
+    public sealed class Enum<T> : DbExpression<T>
     {
     }
 
-    public abstract class RangeColumn<T> : DbExpression<T>
+    public abstract class RangeType<T> : DbExpression<T>
     {
         public Predicate Between(T start, T end)
         {
@@ -176,35 +176,35 @@ namespace Linq2Oracle
         }
     }
 
-    public sealed class DateTimeColumn<T> : RangeColumn<T>
+    public sealed class DateTime<T> : RangeType<T>
     {
     }
 
-    public sealed class NumberColumn<T> : RangeColumn<T>
+    public sealed class Number<T> : RangeType<T>
     {
-        public static NumberColumn<T> operator +(NumberColumn<T> a, NumberColumn<T> b)
+        public static Number<T> operator +(Number<T> a, Number<T> b)
         {
             return BuildBinaryExpression(a, b, "+", a.MetaInfo);
         }
 
-        public static NumberColumn<T> operator -(NumberColumn<T> a, NumberColumn<T> b)
+        public static Number<T> operator -(Number<T> a, Number<T> b)
         {
             return BuildBinaryExpression(a, b, "-", a.MetaInfo);
         }
 
-        public static NumberColumn<T> operator *(NumberColumn<T> a, NumberColumn<T> b)
+        public static Number<T> operator *(Number<T> a, Number<T> b)
         {
             return BuildBinaryExpression(a, b, "*", a.MetaInfo);
         }
 
-        public static NumberColumn<T> operator /(NumberColumn<T> a, NumberColumn<T> b)
+        public static Number<T> operator /(Number<T> a, Number<T> b)
         {
             return BuildBinaryExpression(a, b, "/", a.MetaInfo);
         }
 
-        private static NumberColumn<T> BuildBinaryExpression(NumberColumn<T> a, NumberColumn<T> b, string binaryOperator,IDbMetaInfo metaInfo)
+        private static Number<T> BuildBinaryExpression(Number<T> a, Number<T> b, string binaryOperator, IDbMetaInfo metaInfo)
         {
-            return new NumberColumn<T>().Init("(" + a.Expression + " " + binaryOperator + " " + b.Expression + ")", metaInfo);
+            return new Number<T>().Init("(" + a.Expression + " " + binaryOperator + " " + b.Expression + ")", metaInfo);
         }
     }
 }
