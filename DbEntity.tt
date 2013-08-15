@@ -22,7 +22,8 @@ using Oracle.ManagedDataAccess.Client;
 namespace Test.DataModel {
 <# 
 foreach(var db in new[] {
-		new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="SchemaName"},
+		//new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="SchemaName"},
+		new{ ConnectionString = @"User Id=nspmes;Password=nspmes;data source=//10.100.103.32:1527/F2MESD" , Schema="NSPMES"},
 }){
 using (var con = new OracleConnection(db.ConnectionString)) {
 	// Customize.If you need enum type mapping.
@@ -168,12 +169,12 @@ bool IsEnumType(Dictionary<string,Type> enumTypeMap,string tableName,string colu
 string ToQueryTypeString(Type t){
 	Type nonNullable= GetNonNullType(t);
     if(nonNullable==typeof(string))
-		return "StringColumn";
+		return "Linq2Oracle.String";
 	if(nonNullable.IsEnum)
-		return "EnumColumn<"+ GetFriendlyName(t) + ">";
+		return "Linq2Oracle.Enum<"+ GetFriendlyName(t) + ">";
 	if(nonNullable==typeof(DateTime))
-		return "DateTimeColumn<" + GetFriendlyName(t) + ">";
-	return "NumberColumn<" + GetFriendlyName(t) + ">";
+		return "Linq2Oracle.DateTime<" + GetFriendlyName(t) + ">";
+	return "Linq2Oracle.Number<" + GetFriendlyName(t) + ">";
 }
 
 Type OracleType2Clr(Dictionary<string,Type> enumTypeMap, string tableName,string columnName,bool isNullable,string oracleType,decimal length,decimal? precision,decimal? scale) {
