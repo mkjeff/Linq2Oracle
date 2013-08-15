@@ -187,7 +187,7 @@ namespace Linq2Oracle {
         }
         #endregion
         #region Delete
-        internal bool Delete<T>(T t) where T : DbEntity {
+        public bool Delete<T>(T t) where T : DbEntity {
             if (Table<T>.PkColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵, 必須使用另一個多載方法提供Where條件");
 

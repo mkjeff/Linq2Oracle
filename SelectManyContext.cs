@@ -5,7 +5,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     // (sql,selection,c,param)=>;
     using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
 
@@ -16,7 +17,8 @@ namespace Linq2Oracle {
 
 
         internal SelectManyContext(OracleDB db, _ transparentId, Lazy<Projection> projector, SqlGenerator genSql, Closure closure)
-            : base(db, projector, genSql, closure) {
+            : base(db, projector, genSql, closure)
+        {
             _transparentId = transparentId;
         }
 
@@ -30,19 +32,21 @@ namespace Linq2Oracle {
             return new SelectManyContext<T, C, TResult, _>(_db, _transparentId, _projection, _genSql, newC);
         }
 
-        public QueryContext<T, C, TResult> Select(Func<_, C> selector) {
+        public QueryContext<T, C, TResult> Select(Func<_, C> selector)
+        {
             return this;
         }
 
         #region OrderBy(Descending) / ThenBy(Descending)
-        public SelectManyContext<T, C, TResult, _> OrderBy(Func<_, IEnumerable<SortDescription>> keySelector)
+        public SelectManyContext<T, C, TResult, _> OrderBy(Func<_, IEnumerable<ColumnSortDescription>> keySelector)
         {
-            var orders = from order in keySelector(_transparentId)
-                         where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-                         select "t0." + order.ColumnName + (order.Descending ? " DESC" : string.Empty);
-
-            var orderExpr = string.Join(",", orders.ToArray());
-            return string.IsNullOrEmpty(orderExpr) ? this : OrderBy(orderExpr);
+            var newC = _closure;
+            newC.Orderby = EnumerableEx.Concat(
+                _closure.Orderby,
+                from order in keySelector(_transparentId)
+                where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
+                select new SortDescription("t0." + order.ColumnName, order.Descending));
+            return new SelectManyContext<T, C, TResult, _>(_db, _transparentId, _projection, _genSql, newC);
         }
         public SelectManyContext<T, C, TResult, _> OrderBy(Func<_, DbExpression> keySelector)
         {
@@ -50,22 +54,22 @@ namespace Linq2Oracle {
         }
         public SelectManyContext<T, C, TResult, _> OrderByDescending(Func<_, DbExpression> keySelector)
         {
-            return OrderBy(keySelector(_transparentId).Expression + " DESC");
+            return OrderBy(keySelector(_transparentId).Expression, true);
         }
 
         public SelectManyContext<T, C, TResult, _> ThenBy(Func<_, DbExpression> keySelector)
         {
-            return OrderBy(", " + keySelector(_transparentId).Expression);
+            return OrderBy(keySelector(_transparentId).Expression);
         }
         public SelectManyContext<T, C, TResult, _> ThenByDescending(Func<_, DbExpression> keySelector)
         {
-            return OrderBy(", " + keySelector(_transparentId).Expression + " DESC");
+            return OrderBy(keySelector(_transparentId).Expression, true);
         }
 
-        SelectManyContext<T, C, TResult, _> OrderBy(string expr)
+        SelectManyContext<T, C, TResult, _> OrderBy(string expr, bool desc = false)
         {
             var newC = _closure;
-            newC.Orderby += expr;
+            newC.Orderby = EnumerableEx.Concat(_closure.Orderby, new SortDescription(expr, desc));
             return new SelectManyContext<T, C, TResult, _>(_db, _transparentId, _projection, _genSql, newC);
         }
         #endregion

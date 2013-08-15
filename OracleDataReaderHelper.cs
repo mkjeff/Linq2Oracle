@@ -112,6 +112,8 @@ namespace Linq2Oracle
                     var nullableType = clrType.GetGenericArguments()[0];
                     if (nullableType.IsEnum) return GetNullableEnum_T.MakeGenericMethod(nullableType);
                     if (nullableType == typeof(char)) return GetNullableChar;
+                    if (nullableType == typeof(short)) return GetNullableInt16;
+                    if (nullableType == typeof(int)) return GetNullableInt32;
                     if (nullableType == typeof(long)) return GetNullableInt64;
                     if (nullableType == typeof(float)) return GetNullableFloat;
                     if (nullableType == typeof(double)) return GetNullableDouble;
@@ -120,6 +122,8 @@ namespace Linq2Oracle
                 if (dbType == OracleDbType.Date) return GetOraDate;
                 if (dbType == OracleDbType.TimeStamp) return GetOraTimeStamp;
                 if (clrType.IsEnum) return GetEnum_T.MakeGenericMethod(clrType);
+                if (clrType == typeof(short)) return GetInt16;
+                if (clrType == typeof(int)) return GetInt32;
                 if (clrType == typeof(long)) return GetInt64;
                 if (clrType == typeof(float)) return GetFloat;
                 if (clrType == typeof(double)) return GetDouble;

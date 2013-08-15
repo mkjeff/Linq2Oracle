@@ -1,16 +1,16 @@
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Text;
-using Oracle.ManagedDataAccess.Client;
-using Oracle.ManagedDataAccess.Types;
 
 namespace Linq2Oracle {
     using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
-    using System.Runtime.CompilerServices;
 
     /// <summary>
     /// GroupBy查詢結果
@@ -39,20 +39,39 @@ namespace Linq2Oracle {
             this._having = filters;
         }
 
+        /// <summary>
+        /// Debug infomation
+        /// </summary>
+        IEnumerable<TKey> KeyCollection { get { return this.Select(g => g.Key); } }
+
+        #region Where(Having)
+        /// <summary>
+        /// SQL Having operator
+        /// </summary>
+        /// <param name="predicate"></param>
+        /// <returns></returns>
         public GroupingContextCollection<T, C, TKey, TElement> Where(Func<HavingClause<T, C>, Predicate> predicate)
         {
             return new GroupingContextCollection<T, C, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
-                filters: EnumerableEx.Concat(_having, EnumerableEx.Return(predicate(HavingClause<T, C>.Instance))));
+                filters: EnumerableEx.Concat(_having, predicate(HavingClause<T, C>.Instance)));
         }
-
+        #endregion
+        #region Select
+        /// <summary>
+        /// SQL Group Aggregation Projection
+        /// </summary>
+        /// <typeparam name="TResult"></typeparam>
+        /// <param name="selector"></param>
+        /// <param name="file"></param>
+        /// <param name="line"></param>
+        /// <returns></returns>
         public IQueryContext<TResult> Select<TResult>(Expression<Func<ISqlGroupContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             return new AggregateResult<TResult>(new Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
         }
-
-        IEnumerable<TKey> KeyCollection { get { return this.Select(g => g.Key); } }
+        #endregion
         #region IQueryContext 成員
         void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param)
         {
@@ -78,8 +97,11 @@ namespace Linq2Oracle {
         {
             foreach (var key in this.Select(g=>g.Key))
             {
+                var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
                 var newClosure = _context._closure;
-                newClosure.Filters = EnumerableEx.Concat(_context._closure.Filters, EnumerableEx.Return(_keySelector.Value.GetGroupKeyPredicate(key)));
+                if (keyPredicate.IsVaild)
+                    newClosure.Filters = EnumerableEx.Concat(_context._closure.Filters, keyPredicate);
+
                 yield return new GroupingContext<T, C, TKey, TElement>(key, _context.Db, _context._projection, _context._genSql, newClosure);
             }
         }
@@ -104,11 +126,17 @@ namespace Linq2Oracle {
         }
     }
 
+    /// <summary>
+    /// SQL Having Group Source
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="C"></typeparam>
     public sealed class HavingClause<T, C> where T : DbEntity
     {
         static HavingClause() { }
         internal static readonly HavingClause<T, C> Instance = new HavingClause<T,C>();
 
+        #region Count / LongCount
         public Number<int> Count()
         {
             return new Number<int>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Int32 });
@@ -118,40 +146,93 @@ namespace Linq2Oracle {
         {
             return new Number<long>().Init("COUNT(*)", new DbExpressionMetaInfo { DbType = OracleDbType.Int64 });
         }
-
-        public Number<decimal> Average<N>(Func<C, Number<N>> selector)
+        #endregion
+        #region Average
+        public Number<decimal> Average<N>(Func<C, Number<N>> selector) where N : struct
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
             return new Number<decimal>().Init("AVG(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
         }
 
-        public Number<decimal> Sum<N>(Func<C, Number<N>> selector)
+        public Number<decimal?> Average<N>(Func<C, Number<N?>> selector) where N : struct
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new Number<decimal>().Init("SUM(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+            return new Number<decimal?>().Init("AVG(" + c.Expression + ")", new DbExpressionMetaInfo { DbType = OracleDbType.Decimal });
+        }
+        #endregion
+        #region Sum
+        public Number<N> Sum<N>(Func<C, Number<N>> selector) where N : struct
+        {
+            var c = selector(EntityTable<T, C>.ColumnsDefine);
+            return new Number<N>().Init("SUM(" + c.Expression + ")", c.MetaInfo);
         }
 
-        public DbExpression<TR> Max<TR>(Func<C, DbExpression<TR>> selector)
+        public Number<N?> Sum<N>(Func<C, Number<N?>> selector) where N : struct
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new DbExpression<TR>().Init("MAX(" + c.Expression + ")", c.MetaInfo);
+            return new Number<N?>().Init("SUM(" + c.Expression + ")", c.MetaInfo);
         }
-        public DbExpression<TR> Min<TR>(Func<C, DbExpression<TR>> selector)
+        #endregion
+        #region Max / Min
+        public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : DbExpression, new()
         {
             var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new DbExpression<TR>().Init("MIN(" + c.Expression + ")", c.MetaInfo);
+            return new TColumn().Init("MAX(" + c.Expression + ")", c.MetaInfo);
         }
+
+        public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : DbExpression, new()
+        {
+            var c = selector(EntityTable<T, C>.ColumnsDefine);
+            return new TColumn().Init("MIN(" + c.Expression + ")", c.MetaInfo);
+        }
+        #endregion
     }
 
+    /// <summary>
+    /// SQL Aggregation Group Source 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <typeparam name="TKey"></typeparam>
     public interface ISqlGroupContext<T, TKey> where T : DbEntity
     {
         TKey Key { get; }
+
+        double Average(Expression<Func<T, short>> selector);
+        double Average(Expression<Func<T, int>> selector);
         double Average(Expression<Func<T, long>> selector);
-        double Average(Expression<Func<T, float>> selector);
-        TR Max<TR>(Expression<Func<T, TR>> selector);
-        TR Min<TR>(Expression<Func<T, TR>> selector);
+        float Average(Expression<Func<T, float>> selector);
+        double Average(Expression<Func<T, double>> selector);
+        decimal Average(Expression<Func<T, decimal>> selector);
+
+        double? Average(Expression<Func<T, short?>> selector);
+        double? Average(Expression<Func<T, int?>> selector);
+        double? Average(Expression<Func<T, long?>> selector);
+        float? Average(Expression<Func<T, float?>> selector);
+        double? Average(Expression<Func<T, double?>> selector);
+        decimal? Average(Expression<Func<T, decimal?>> selector);
+
+        int Sum(Expression<Func<T, int>> selector);
         long Sum(Expression<Func<T, long>> selector);
-        long Count();
+        float Sum(Expression<Func<T, float>> selector);
+        double Sum(Expression<Func<T, double>> selector);
+        decimal Sum(Expression<Func<T, decimal>> selector);
+
+        int? Sum(Expression<Func<T, int?>> selector);
+        long? Sum(Expression<Func<T, long?>> selector);
+        float? Sum(Expression<Func<T, float?>> selector);
+        double? Sum(Expression<Func<T, double?>> selector);
+        decimal? Sum(Expression<Func<T, decimal?>> selector);
+
+        TR? Max<TR>(Expression<Func<T, TR>> selector) where TR : struct;
+        TR? Max<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
+        string Max(Expression<Func<T, string>> selector);
+
+        TR? Min<TR>(Expression<Func<T, TR>> selector) where TR : struct;
+        TR? Min<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
+        string Min(Expression<Func<T, string>> selector);
+
+        int Count();
+        long LongCount();
     }
 
     [DebuggerDisplay("查詢 {TableName}")]

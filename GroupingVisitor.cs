@@ -6,20 +6,24 @@ using System.Reflection;
 using System.Text;
 using Oracle.ManagedDataAccess.Client;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     /// <summary>
     /// from ...
     /// group . by . into g
     /// select new { 
     ///     /* 
-    ///         Grouping Aggregate function :g 
+    ///         Grouping Aggregate function :
+    ///         g.Function(),
+    ///         g.Function(a=>a.ColumnName)
     ///     */ 
     /// }
     /// </summary>
-    sealed class GroupingAggregate : ExpressionVisitor {
+    sealed class GroupingAggregate : ExpressionVisitor
+    {
+        static GroupingAggregate() { }
         static readonly ParameterExpression dbReader = Expression.Parameter(typeof(OracleDataReader), "reader");
         static readonly ExpressionCache<GroupingAggregate> _Cache = new ExpressionCache<GroupingAggregate>();
-        static GroupingAggregate() { }
 
         public readonly string SelectionSql;
         public readonly Delegate ValueSelector;
@@ -35,7 +39,8 @@ namespace Linq2Oracle {
             return _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
         }
 
-        GroupingAggregate(Table.Info tableInfo, GroupingKeySelector keySelector, LambdaExpression valueSelector) {
+        GroupingAggregate(Table.Info tableInfo, GroupingKeySelector keySelector, LambdaExpression valueSelector)
+        {
             this._valueGetters = new Dictionary<object, Expression>();//store column value getter expression
             this._tableInfo = tableInfo;
             this._paramT = valueSelector.Parameters[0];
@@ -54,7 +59,8 @@ namespace Linq2Oracle {
             this._keyMember = null;
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m) {
+        protected override Expression VisitMemberAccess(MemberExpression m)
+        {
             if (m.Expression == null)
                 return base.VisitMemberAccess(m);
 
@@ -64,24 +70,26 @@ namespace Linq2Oracle {
 
             // select 整個 Key 當作輸出 而不是存取 Key.Property,
             // 需要重新Vist GroupBy's key selector expression
-            if (m.Member == _keyMember) 
+            if (m.Member == _keyMember)
                 return new KeySelectorVisitor(_tableInfo, _selectionSqlBuffer, GrouipingKeySelector.KeySelectorExpression, _valueGetters).Expression;
 
-            if (m.Expression.Type == GrouipingKeySelector.KeySelectorExpression.Body.Type) {
+            if (m.Expression.Type == GrouipingKeySelector.KeySelectorExpression.Body.Type)
+            {
                 // visit Key.property
                 var c = GrouipingKeySelector.GetColumn((PropertyInfo)m.Member);// columnMap[m.Member.Name];
                 // reader.GetOraXXX(index); extension method
                 if (_selectionSqlBuffer.Length > 0)
                     _selectionSqlBuffer.Append(',');
                 _selectionSqlBuffer.Append(c.TableQuotesColumnName);
-                expr =  Expression.Call(OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable), dbReader, Expression.Constant(_valueGetters.Count));
-                _valueGetters.Add(m.Member,expr);
+                expr = Expression.Call(OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable), dbReader, Expression.Constant(_valueGetters.Count));
+                _valueGetters.Add(m.Member, expr);
                 return expr;
             }
             return base.VisitMemberAccess(m);
         }
 
-        protected override Expression VisitMethodCall(MethodCallExpression m) {
+        protected override Expression VisitMethodCall(MethodCallExpression m)
+        {
             if (m.Method.DeclaringType != _paramT.Type)
                 return base.VisitMethodCall(m);
 
@@ -91,40 +99,44 @@ namespace Linq2Oracle {
                 return expr;
 
             DbColumn c = null;
-            if (m.Arguments.Any())
-                c = _tableInfo.DbColumnMap[new AggregateColumnVisitor(m.Arguments[0]).ColumnName];
-
-            string funcExpr = null;
-            switch (m.Method.Name) {
-                case "Sum": // g.Sum(a=> ...)
-                    funcExpr = "SUM({0})";
-                    break;
-                case "Average": // g.Average(a=> ...)
-                    funcExpr = "ROUND(AVG({0}),12)";
-                    break;
-                case "Max": // g.Max(a=> ...)
-                    funcExpr = "MAX({0})";
-                    break;
-                case "Min": // g.Min(a=> ...)
-                    funcExpr = "MIN({0})";
-                    break;
-                case "Count": // g.Count()
-                    funcExpr = "COUNT(*)";
-                    break;
-                default:
-                    throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
+            if (m.Arguments.Count == 1) // g.Function(a=>...)
+            {
+                //c = _tableInfo.DbColumnMap[new AggregateColumnVisitor(m.Arguments[0]).ColumnName];
+                c = _tableInfo.DbColumnMap[GetAggregateParameter(m.Arguments[0])];
             }
+
             if (_selectionSqlBuffer.Length > 0)
                 _selectionSqlBuffer.Append(',');
 
             MethodInfo mi = null;
-
-            if (c == null) { // COUNT(*)
-                _selectionSqlBuffer.Append(funcExpr);
-                mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, OracleDbType.Int64, false);
-            } else {
-                _selectionSqlBuffer.AppendFormat(funcExpr, c.TableQuotesColumnName);
-                mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
+            switch (m.Method.Name)
+            {
+                case "Sum":
+                    _selectionSqlBuffer.AppendFormat("SUM({0})", c.TableQuotesColumnName);
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
+                    break;
+                case "Average":
+                    _selectionSqlBuffer.AppendFormat("ROUND(AVG({0}),12)", c.TableQuotesColumnName);
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
+                    break;
+                case "Max":
+                    _selectionSqlBuffer.AppendFormat("MAX({0})", c.TableQuotesColumnName);
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
+                    break;
+                case "Min":
+                    _selectionSqlBuffer.AppendFormat("MIN({0})", c.TableQuotesColumnName);
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
+                    break;
+                case "Count":
+                    _selectionSqlBuffer.Append("COUNT(*)");
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, OracleDbType.Int32, false);
+                    break;
+                case "LongCount":
+                    _selectionSqlBuffer.Append("COUNT(*)");
+                    mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, OracleDbType.Int64, false);
+                    break;
+                default:
+                    throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
             }
 
             expr = Expression.Call(mi, dbReader, Expression.Constant(_valueGetters.Count));
@@ -132,26 +144,44 @@ namespace Linq2Oracle {
             return expr;
         }
 
-        #region Inner Type
-        sealed class AggregateColumnVisitor : ExpressionVisitor {
-            public string ColumnName { get; private set; }
-            internal AggregateColumnVisitor(Expression expr) {
-                base.Visit(expr);
-            }
+        static string GetAggregateParameter(Expression expression)
+        {
+            var lambda = (LambdaExpression)((UnaryExpression)expression).Operand;
+            var member = lambda.Body as MemberExpression;
+            if (member == null)
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + expression.ToString());
 
-            protected override Expression VisitMemberAccess(MemberExpression m) {
-                ColumnName = m.Member.Name;
-                return m;
-            }
+            if (!(member.Member is PropertyInfo) || !typeof(DbEntity).IsAssignableFrom(member.Member.DeclaringType))
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + expression.ToString());
+
+            return member.Member.Name;
         }
 
-        sealed class KeySelectorVisitor : ExpressionVisitor {
+        #region Inner Type
+        //sealed class AggregateColumnVisitor : ExpressionVisitor
+        //{
+        //    public string ColumnName { get; private set; }
+        //    internal AggregateColumnVisitor(Expression expr)
+        //    {
+        //        base.Visit(expr);
+        //    }
+
+        //    protected override Expression VisitMemberAccess(MemberExpression m)
+        //    {
+        //        ColumnName = m.Member.Name;
+        //        return m;
+        //    }
+        //}
+
+        sealed class KeySelectorVisitor : ExpressionVisitor
+        {
             readonly StringBuilder selection;
             readonly Table.Info tableInfo;
             readonly LambdaExpression Lambda;
             public readonly Expression Expression;
             readonly Dictionary<object, Expression> valueGetterMap;
-            internal KeySelectorVisitor(Table.Info tableInfo, StringBuilder selection, LambdaExpression lambda, Dictionary<object, Expression> valueGetterMap) {
+            internal KeySelectorVisitor(Table.Info tableInfo, StringBuilder selection, LambdaExpression lambda, Dictionary<object, Expression> valueGetterMap)
+            {
                 this.valueGetterMap = valueGetterMap;
                 this.Lambda = lambda;
                 this.tableInfo = tableInfo;
@@ -161,22 +191,25 @@ namespace Linq2Oracle {
                 this.tableInfo = null;
             }
 
-            protected override Expression VisitMemberInit(MemberInitExpression init) {
+            protected override Expression VisitMemberInit(MemberInitExpression init)
+            {
                 // new Class{ Member init }
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + init.ToString());
             }
 
-            protected override Expression VisitMethodCall(MethodCallExpression m) {
+            protected override Expression VisitMethodCall(MethodCallExpression m)
+            {
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
             }
 
-            IEnumerable<Expression> ParseNew(NewExpression nex) {
+            IEnumerable<Expression> ParseNew(NewExpression nex)
+            {
                 for (int i = 0; i < nex.Arguments.Count; i++)
                 {
                     var arg = nex.Arguments[i] as MemberExpression;
                     /* in .NET 3.5 nex.Members[i] is Property get MethodInfo */
                     //nex.Members[i].DeclaringType.GetProperty(nex.Members[i].Name.Substring(nex.Members[i].Name.IndexOf('_') + 1));
-                    var pi = (PropertyInfo)nex.Members[i]; 
+                    var pi = (PropertyInfo)nex.Members[i];
 
                     Expression getter = null;
                     if (valueGetterMap.TryGetValue(pi, out getter))
@@ -196,11 +229,13 @@ namespace Linq2Oracle {
                 }
             }
 
-            protected override NewExpression VisitNew(NewExpression nex) {
+            protected override NewExpression VisitNew(NewExpression nex)
+            {
                 return Expression.New(nex.Constructor, ParseNew(nex), nex.Members);
             }
 
-            protected override Expression VisitMemberAccess(MemberExpression m) {
+            protected override Expression VisitMemberAccess(MemberExpression m)
+            {
                 if (m.Expression.Type != Lambda.Parameters[0].Type)
                     throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
 
@@ -213,7 +248,7 @@ namespace Linq2Oracle {
                     selection.Append(',');
                 selection.Append(c.TableQuotesColumnName);
                 expr = Expression.Call(OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable), dbReader, Expression.Constant(valueGetterMap.Count));
-                valueGetterMap.Add(m.Member,expr);
+                valueGetterMap.Add(m.Member, expr);
                 return expr;
             }
         }
@@ -225,12 +260,15 @@ namespace Linq2Oracle {
     ///     from ...
     ///     group by {KeySelectorExpression}
     /// 
-    /// into SQL
+    /// {KeySelectorExpression} only support column name
+    /// 
+    /// to SQL
     ///     select ..
     ///     from ...
     ///     group {GroupKeySql}
     /// </summary>
-    sealed class GroupingKeySelector : ExpressionVisitor {
+    sealed class GroupingKeySelector : ExpressionVisitor
+    {
         static readonly ExpressionCache<GroupingKeySelector> _Cache = new ExpressionCache<GroupingKeySelector>();
         public readonly LambdaExpression KeySelectorExpression;
         public readonly string GroupKeySql;
@@ -238,26 +276,36 @@ namespace Linq2Oracle {
         Dictionary<PropertyInfo, DbColumn> _memberMap;
         bool _isComplexTypeKey;
 
-        GroupingKeySelector(Table.Info tableInfo, LambdaExpression keySelector) {
+        GroupingKeySelector(Table.Info tableInfo, LambdaExpression keySelector)
+        {
             this._tableInfo = tableInfo;
             this.KeySelectorExpression = keySelector;
             base.Visit(keySelector.Body);
 
-            GroupKeySql = string.Join(",", _memberMap.Values.Select(c => c.TableQuotesColumnName).ToArray());
+            if (_memberMap != null)
+                GroupKeySql = string.Join(",", _memberMap.Values.Select(c => c.TableQuotesColumnName));
+            else
+                GroupKeySql = "'1'"; // dummy group
 
             this._tableInfo = null;
         }
 
-        internal DbColumn GetColumn(PropertyInfo property) {
+        internal DbColumn GetColumn(PropertyInfo property)
+        {
             return _memberMap[property];
         }
 
-        internal static GroupingKeySelector Create<T, TKey>(Expression<Func<T, TKey>> keySelector) where T : DbEntity {
+        internal static GroupingKeySelector Create<T, TKey>(Expression<Func<T, TKey>> keySelector) where T : DbEntity
+        {
             return _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
         }
 
-        internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey) {
-            if (_memberMap.Values.Count == 1 && !_isComplexTypeKey)
+        internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey)
+        {
+            if (_memberMap == null)
+                return new Predicate(true);
+
+            if (_memberMap.Count == 1 && !_isComplexTypeKey)
             {
                 var c = _memberMap.Values.First();
                 if (groupKey == null)
@@ -282,12 +330,15 @@ namespace Linq2Oracle {
             });
         }
 
-        protected override Expression VisitMemberInit(MemberInitExpression init) {
+        protected override Expression VisitMemberInit(MemberInitExpression init)
+        {
             // group by new Class{ Member init }
             throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + init.ToString());
         }
 
-        protected override NewExpression VisitNew(NewExpression nex) {
+        protected override NewExpression VisitNew(NewExpression nex)
+        {
+
             //throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援巢狀類別的Key" + nex.ToString());
             _memberMap = nex.Arguments.Cast<MemberExpression>()
                 .Zip(nex.Members, (arg, member) => new
@@ -296,14 +347,15 @@ namespace Linq2Oracle {
                     ColumnName = arg.Member.Name
                 })
                 .ToDictionary(
-                    a => a.Property, 
+                    a => a.Property,
                     a => new DbColumn(a.Property, this._tableInfo.DbColumnMap[a.ColumnName])
                 );
             _isComplexTypeKey = true;
             return nex;
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m) {
+        protected override Expression VisitMemberAccess(MemberExpression m)
+        {
             if (m.Expression == null || m.Expression.Type != KeySelectorExpression.Parameters[0].Type)
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
 
@@ -318,7 +370,8 @@ namespace Linq2Oracle {
             return m;
         }
 
-        protected override Expression VisitMethodCall(MethodCallExpression m) {
+        protected override Expression VisitMethodCall(MethodCallExpression m)
+        {
             throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
         }
     }

@@ -6,11 +6,11 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Linq2Oracle
 {
-    using System.Runtime.CompilerServices;
     // (sql,selection,c,param)=>;
     using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
 
@@ -72,6 +72,7 @@ namespace Linq2Oracle
             _closure = new Closure
             {
                 Filters = Enumerable.Empty<Predicate>(),
+                Orderby = Enumerable.Empty<SortDescription>(),
                 Tables = EnumerableEx.Return((IQueryContext)this)
             };
             _data = GetData();
@@ -84,6 +85,7 @@ namespace Linq2Oracle
             _closure = new Closure
             {
                 Filters = Enumerable.Empty<Predicate>(),
+                Orderby = Enumerable.Empty<SortDescription>(),
                 Tables = EnumerableEx.Return((IQueryContext)this)
             };
             _projection = projector;
@@ -180,7 +182,7 @@ namespace Linq2Oracle
                 return this;
             var newC = _closure;
             newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = null;
+            newC.Orderby = Enumerable.Empty<SortDescription>();
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -209,7 +211,7 @@ namespace Linq2Oracle
                 return this;
             var newC = _closure;
             newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = null;
+            newC.Orderby = Enumerable.Empty<SortDescription>();
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -222,7 +224,7 @@ namespace Linq2Oracle
                     _genSql(sql, "t0.*", _closure, p);
                     sql.Append(") t0 WHERE ROWNUM <= :").Append(p.Add(p.Count.ToString(), count).ParameterName);
 
-                    if (c.Filters.Any() || !string.IsNullOrEmpty(c.Orderby))
+                    if (c.Filters.Any() || c.Orderby.Any())
                         sql.Insert(i + 7 + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
 
                     sql.MappingAlias(i, c.Tables.First());
@@ -237,7 +239,7 @@ namespace Linq2Oracle
                 return this;
             var newC = _closure;
             newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = null;
+            newC.Orderby = Enumerable.Empty<SortDescription>();
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -247,16 +249,17 @@ namespace Linq2Oracle
                     // SELECT [select] FROM (SELECT * FROM (sql) t0 WHERE ROWNUM <= [count])t0 [WHERE .. ORDER BY ..])
                     int i = sql.Length;
                     sql.Append("SELECT ").Append(select).Append(" FROM (");
+
                     _genSql(sql, string.Format(
                         "t0.*, SUM({0}) OVER(PARTITION BY {1} {2} ROWS UNBOUNDED PRECEDING) AS accSum",
                         sumBy(EntityTable<T, C>.ColumnsDefine).Expression,
                         partitionBy(EntityTable<T, C>.ColumnsDefine).Expression,
-                        string.IsNullOrEmpty(_closure.Orderby) ? string.Empty : " ORDER BY " + _closure.Orderby),
+                        new StringBuilder().AppendOrder(_closure.Orderby).ToString()),
                         _closure, p);
 
                     sql.Append(") t0 WHERE t0.accSum <= :").Append(p.Add(p.Count.ToString(), sum).ParameterName);
 
-                    if (c.Filters.Any() || !string.IsNullOrEmpty(c.Orderby))
+                    if (c.Filters.Any() || c.Orderby.Any())
                         sql.Insert(i + 7 + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
 
                     sql.MappingAlias(i, c.Tables.First());
@@ -270,7 +273,7 @@ namespace Linq2Oracle
             int skip = (pageNo - 1) * pageSize;
             var newC = _closure;
             newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = null;
+            newC.Orderby = Enumerable.Empty<SortDescription>();
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -288,7 +291,7 @@ namespace Linq2Oracle
                     sql.Append(")a )t0 WHERE t0.rn > :").Append(p.Add(p.Count.ToString(), skip).ParameterName)
                         .Append(" AND ROWNUM <= :").Append(p.Add(p.Count.ToString(), pageSize).ParameterName);
 
-                    if (c.Filters.Any() || !string.IsNullOrEmpty(c.Orderby))
+                    if (c.Filters.Any() || c.Orderby.Any())
                         sql.Insert(i + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
 
                     sql.MappingAlias(i, c.Tables.First());
@@ -297,14 +300,16 @@ namespace Linq2Oracle
         }
         #endregion
         #region OrderBy(Descending) / ThenBy(Descending)
-        public QueryContext<T, C, TResult> OrderBy(Func<C, IEnumerable<SortDescription>> keySelector)
+        public QueryContext<T, C, TResult> OrderBy(Func<C, IEnumerable<ColumnSortDescription>> keySelector)
         {
-            var orders = from order in keySelector(EntityTable<T, C>.ColumnsDefine)
-                         where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-                         select "t0." + order.ColumnName + (order.Descending ? " DESC" : string.Empty);
+            var newC = _closure;
+            newC.Orderby = EnumerableEx.Concat(
+                _closure.Orderby,
+                from order in keySelector(EntityTable<T, C>.ColumnsDefine)
+                where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
+                select new SortDescription("t0." + order.ColumnName, order.Descending));
+            return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
 
-            var orderExpr = string.Join(",", orders.ToArray());
-            return string.IsNullOrEmpty(orderExpr) ? this : OrderBy(orderExpr);
         }
         public QueryContext<T, C, TResult> OrderBy(Func<C, DbExpression> keySelector)
         {
@@ -312,22 +317,22 @@ namespace Linq2Oracle
         }
         public QueryContext<T, C, TResult> OrderByDescending(Func<C, DbExpression> keySelector)
         {
-            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression + " DESC");
+            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression, true);
         }
 
         public QueryContext<T, C, TResult> ThenBy(Func<C, DbExpression> keySelector)
         {
-            return OrderBy(", " + keySelector(EntityTable<T, C>.ColumnsDefine).Expression);
+            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression);
         }
         public QueryContext<T, C, TResult> ThenByDescending(Func<C, DbExpression> keySelector)
         {
-            return OrderBy(", " + keySelector(EntityTable<T, C>.ColumnsDefine).Expression + " DESC");
+            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression, true);
         }
 
-        QueryContext<T, C, TResult> OrderBy(string expr)
+        QueryContext<T, C, TResult> OrderBy(string expr,bool desc=false)
         {
             var newC = _closure;
-            newC.Orderby += expr;
+            newC.Orderby = EnumerableEx.Concat(_closure.Orderby, new SortDescription(expr, desc));
             return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
         }
         #endregion
@@ -338,7 +343,7 @@ namespace Linq2Oracle
             if (!filter.IsVaild)
                 return this;
             var newC = _closure;
-            newC.Filters = EnumerableEx.Concat(_closure.Filters, EnumerableEx.Return(filter));
+            newC.Filters = EnumerableEx.Concat(_closure.Filters, filter);
             return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
         }
         #endregion
@@ -359,7 +364,7 @@ namespace Linq2Oracle
             var innerContext = collectionSelector(EntityTable<T, C>.ColumnsDefine);
 
             var newC = _closure;
-            newC.Tables = EnumerableEx.Concat(_closure.Tables, EnumerableEx.Return((IQueryContext)innerContext));
+            newC.Tables = EnumerableEx.Concat(_closure.Tables, innerContext);
 
             return new SelectManyContext<T, C, TResult, _>(
                 db: _db,
@@ -400,7 +405,7 @@ namespace Linq2Oracle
         public GroupingContextCollection<T, C, TKey, TResult> GroupBy<TKey>(Expression<Func<T, TKey>> keySelector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             var newC = _closure;
-            newC.Orderby = null;
+            newC.Orderby = Enumerable.Empty<SortDescription>();
             return new GroupingContextCollection<T, C, TKey, TResult>(
                 new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC),
                 keySelector);
@@ -424,8 +429,8 @@ namespace Linq2Oracle
         #region Intersect / Except / Union /Contact
         QueryContext<T, C, TResult> SetOp(QueryContext<T, C, TResult> other, string op)
         {
-            var thisC = _closure; thisC.Orderby = null;
-            var otherC = other._closure; otherC.Orderby = null;
+            var thisC = _closure; thisC.Orderby = Enumerable.Empty<SortDescription>();
+            var otherC = other._closure; otherC.Orderby = Enumerable.Empty<SortDescription>();
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -458,102 +463,90 @@ namespace Linq2Oracle
         }
         #endregion
         #region Max / Min / Sum / Average
-        public TR? Max<TR>(Func<C, Enum<TR>> selector) where TR : struct
-        {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
-            return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
-        }
-        public TR? Min<TR>(Func<C, Enum<TR>> selector) where TR : struct
-        {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
-            return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
-        }
-
-        public TR? Max<TR>(Func<C, Enum<TR?>> selector) where TR : struct
-        {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
-            return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
-        }
-        public TR? Min<TR>(Func<C, Enum<TR?>> selector) where TR : struct
-        {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")")) as string;
-            return value != null ? (TR)Enum.Parse(typeof(TR), value) : (TR?)null;
-        }
-
+        #region Max / Min
         public string Max(Func<C, DbExpression<string>> selector)
         {
-            return Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")") as string;
+            return (string)_AggregateFunction("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
         }
         public string Min(Func<C, DbExpression<string>> selector)
         {
-            return Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")") as string;
+            return (string)_AggregateFunction("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
         }
 
-        public long? Max(Func<C, DbExpression<long>> selector)
+        public TR? Max<TR>(Func<C, DbExpression<TR>> selector) where TR : struct
         {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
+            return _MaxMin<TR>("MAX", selector);
         }
-        public long? Min(Func<C, DbExpression<long>> selector)
+        public TR? Max<TR>(Func<C, DbExpression<TR?>> selector) where TR : struct
         {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
+            return _MaxMin<TR>("MAX", selector);
         }
 
-        public long? Max(Func<C, DbExpression<long?>> selector)
+        public TR? Min<TR>(Func<C, DbExpression<TR>> selector) where TR : struct
         {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToInt64(value) : (long?)value;
+            return _MaxMin<TR>("MIN", selector);
         }
-        public long? Min(Func<C, DbExpression<long?>> selector)
+        public TR? Min<TR>(Func<C, DbExpression<TR?>> selector) where TR : struct
         {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToInt64(value) : (long?)null;
+            return _MaxMin<TR>("MIN", selector);
         }
 
-        public DateTime? Max(Func<C, DbExpression<DateTime>> selector)
+        TR? _MaxMin<TR>(string function, Func<C, DbExpression> selector) where TR : struct
         {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
+            var value = _AggregateFunction(function + "(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
+            var retType = typeof(TR);
+            if (retType.IsEnum)
+            {
+                if (value != null)
+                    return (TR?)Enum.Parse(typeof(TR), (string)value);
+            }
+            else
+            {
+                if (value != null)
+                {
+                    if (value is decimal)
+                        return (TR?)Convert.ChangeType((decimal)value, typeof(TR));
+                    return (TR?)value;
+                }
+            }
+
+            return null;
         }
-        public DateTime? Min(Func<C, DbExpression<DateTime>> selector)
+        #endregion
+        #region Sum
+        public decimal? Sum<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
         {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
+            return (decimal?)_AggregateFunction("SUM(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
         }
 
-        public DateTime? Max(Func<C, DbExpression<DateTime?>> selector)
+        public decimal? Sum<TNumber>(Func<C, Number<TNumber?>> selector) where TNumber : struct
         {
-            var value = (Function("MAX(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
+            return (decimal?)_AggregateFunction("SUM(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
         }
-        public DateTime? Min(Func<C, DbExpression<DateTime?>> selector)
+        #endregion
+        #region Average
+        public decimal? Average<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
         {
-            var value = (Function("MIN(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")"));
-            return value != DBNull.Value ? Convert.ToDateTime(value) : (DateTime?)null;
-        }
-
-        public decimal? Sum<TNumber>(Func<C, Number<TNumber>> selector)
-        {
-            var value = Function("SUM(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + ")");
-            return value != DBNull.Value ? Convert.ToDecimal(value) : (decimal?)null;
+            return (decimal?)_AggregateFunction("ROUND(AVG(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + "),25)");
         }
 
-        public decimal? Average<TNumber>(Func<C, Number<TNumber>> selector)
+        public decimal? Average<TNumber>(Func<C, Number<TNumber?>> selector) where TNumber : struct
         {
-            var value = (Function("ROUND(AVG(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + "),12)"));
-            return value != DBNull.Value ? Convert.ToDecimal(value) : (decimal?)null;
+            return (decimal?)_AggregateFunction("ROUND(AVG(" + selector(EntityTable<T, C>.ColumnsDefine).Expression + "),25)");
         }
+        #endregion
 
-        object Function(string expr)
+        object _AggregateFunction(string expr)
         {
-            var cc = _closure; cc.Orderby = null;
+            var cc = _closure;
+            cc.Orderby = Enumerable.Empty<SortDescription>();
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder();
                 _genSql(sql, expr, cc, cmd.Parameters);
                 cmd.CommandText = sql.ToString();
-                return _db.ExecuteScalar(cmd);
+                var result = _db.ExecuteScalar(cmd);
+                return result == DBNull.Value ? null : result;           
             }
         }
         #endregion
@@ -561,7 +554,7 @@ namespace Linq2Oracle
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
         public int Count()
         {
-            var cc = _closure; cc.Orderby = null;
+            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
             var selection = _projection.Value.SelectSql;
             using (var cmd = _db.CreateCommand())
             {
@@ -592,7 +585,7 @@ namespace Linq2Oracle
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
         public bool Any()
         {
-            var cc = _closure; cc.Orderby = null;
+            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM (");
@@ -615,7 +608,7 @@ namespace Linq2Oracle
             var filter = predicate(EntityTable<T, C>.ColumnsDefine);
             if (!filter.IsVaild)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "All條件有誤");
-            var cc = _closure; cc.Orderby = null;
+            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM (");
@@ -664,7 +657,7 @@ namespace Linq2Oracle
 
         void GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
         {
-            var newC = _closure; newC.Orderby = null;
+            var newC = _closure; newC.Orderby = Enumerable.Empty<SortDescription>();
             if (newC.Distinct)
                 selection = "DISTINCT " + selection;
             _genSql(sql, selection, newC, param);
@@ -733,7 +726,7 @@ namespace Linq2Oracle
         {
             var filter = predicate(ColumnsDefine);
             if (!filter.IsVaild)
-                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Delete條件有誤,無法執行刪除操作");
+                return 0;
 
             using (var cmd = _db.CreateCommand())
             {
@@ -744,36 +737,6 @@ namespace Linq2Oracle
                 return _db.ExecuteNonQuery(cmd);
             }
         }
-
-        /// <summary>
-        /// 刪除一筆紀錄
-        /// </summary>
-        /// <param name="t">Entity object</param>
-        /// <returns>是否刪除成功</returns>
-        public bool Delete(T t)
-        {
-            return _db.Delete(t);
-        }
-
-        /// <summary>
-        /// 刪除多筆紀錄，用於刪除已經讀取的紀錄
-        /// </summary>
-        /// <param name="list"></param>
-        /// <returns></returns>
-        public int Delete(IEnumerable<T> list)
-        {
-            return _db.Delete(list);
-        }
-
-        /// <summary>
-        /// 刪除多筆紀錄，用於刪除已經讀取的紀錄
-        /// </summary>
-        /// <param name="list"></param>
-        /// <returns></returns>
-        public int Delete(params T[] list)
-        {
-            return _db.Delete(list);
-        }
         #endregion
     }
 
@@ -781,7 +744,7 @@ namespace Linq2Oracle
     {
         public IEnumerable<IQueryContext> Tables;
         public IEnumerable<Predicate> Filters;
-        public string Orderby;
+        public IEnumerable<SortDescription> Orderby;
         public bool Distinct;
 
         //public bool IncludeTotalCount;
@@ -794,7 +757,18 @@ namespace Linq2Oracle
         public int? ForUpdate;
     }
 
-    public struct SortDescription
+    sealed class SortDescription
+    {
+        public string Expression { get; private set; }
+        public bool Descending { get; private set; }
+        public SortDescription(string expr, bool desc)
+        {
+            Expression = expr;
+            Descending = desc;
+        }
+    }
+
+    public struct ColumnSortDescription
     {
         public string ColumnName { get; set; }
         public bool Descending { get; set; }

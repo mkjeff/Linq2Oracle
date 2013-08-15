@@ -57,6 +57,11 @@ namespace Linq2Oracle
             return sources.Concat_();
         }
 
+        public static IEnumerable<TSource> Concat<TSource>(IEnumerable<TSource> sources, TSource element)
+        {
+            return EnumerableEx.Concat(sources, EnumerableEx.Return(element));
+        }
+
         private static IEnumerable<TSource> Concat_<TSource>(this IEnumerable<IEnumerable<TSource>> sources)
         {
             foreach (var source in sources)

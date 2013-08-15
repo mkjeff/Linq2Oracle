@@ -2,6 +2,7 @@ using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Text;
 
@@ -77,11 +78,14 @@ namespace Linq2Oracle {
         internal static StringBuilder AppendWhere(this StringBuilder sql, OracleParameterCollection param, IEnumerable<Predicate> filters) {
             if (filters.IsEmpty())
                 return sql;
-            int i = 0;
-            foreach (var filter in filters) {
-                sql.Append(i++ == 0 ? " WHERE " : " AND ");
+            sql.Append(" WHERE ");
+            string delimiter = string.Empty;
+            foreach (var filter in filters)
+            {
+                sql.Append(delimiter);
                 filter.Build(sql, param);
-            };
+                delimiter = " AND ";
+            }
             return sql;
         }
 
@@ -89,19 +93,31 @@ namespace Linq2Oracle {
         {
             if (filters.IsEmpty())
                 return sql;
-            int i = 0;
+            sql.Append(" HAVING ");
+            string delimiter = string.Empty;
             foreach (var filter in filters)
             {
-                sql.Append(i++ == 0 ? " HAVING " : " AND ");
+                sql.Append(delimiter);
                 filter.Build(sql, param);
-            };
+                delimiter = " AND ";
+            }
             return sql;
         }
 
-        internal static StringBuilder AppendOrder(this StringBuilder sql, string order) {
-            if (string.IsNullOrEmpty(order))
+        internal static StringBuilder AppendOrder(this StringBuilder sql, IEnumerable<SortDescription> orders) {
+            if (orders.IsEmpty())
                 return sql;
-            return sql.Append(" ORDER BY ").Append(order);
+            sql.Append(" ORDER BY ");
+            string delimiter = string.Empty;
+            foreach (var order in orders)
+            {
+                sql.Append(delimiter);
+                sql.Append(order.Expression);
+                if (order.Descending)
+                    sql.Append(" DESC");
+                delimiter = ", ";
+            }
+            return sql;
         }
         #endregion
 
