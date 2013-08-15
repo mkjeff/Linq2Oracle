@@ -12,8 +12,7 @@
 <#@ import namespace="Oracle.ManagedDataAccess.Client" #>
 <#@ template language="C#v3.5" debug="True" #>
 <# 
-//string connectionString = @"User Id=username;Password=password;data source=//host:port/SID";
-var connectionInfo = new{ ConnectionString = @"User Id=nspmes;Password=nspmes;data source=//10.100.103.32:1527/F2MESD" , Schema="NSPMES"};
+var connectionInfo = new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="schema"};
 
 using (var con = new OracleConnection(connectionInfo.ConnectionString)) {	
     con.Open();
