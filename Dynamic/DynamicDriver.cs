@@ -118,6 +118,15 @@ namespace Linq2Oracle.LinqPad
             base.DisplayObjectInGrid(objectToDisplay, options);
         }
 
+        public override void PreprocessObjectToWrite(ref object objectToWrite, ObjectGraphInfo info)
+        {
+            if (objectToWrite == null)
+                return;
+            var type = objectToWrite.GetType();
+            if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(GroupingContext<,,,>))
+                objectToWrite = Activator.CreateInstance(typeof(GroupContextWrapper<,,,>).MakeGenericType(type.GetGenericArguments()), objectToWrite);
+        }
+
         public override bool DisallowQueryDisassembly { get { return true; } }
 
         //public override DateTime? GetLastSchemaUpdate(IConnectionInfo cxInfo)

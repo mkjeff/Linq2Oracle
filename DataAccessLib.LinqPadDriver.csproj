@@ -7,7 +7,7 @@
     <ProjectGuid>{75DD2200-514A-4E95-BFA2-A7300CC6F295}</ProjectGuid>
     <OutputType>Library</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>DataAccessLib.LinqPadDriver</RootNamespace>
+    <RootNamespace>Linq2Oracle.LinqPad</RootNamespace>
     <AssemblyName>Linq2Oracle.LinqPadDriver</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -68,6 +68,7 @@
     <Compile Include="Dynamic\DynamicDriver.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="GroupContextWrapper.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Static\StaticDriver.cs" />
   </ItemGroup>
