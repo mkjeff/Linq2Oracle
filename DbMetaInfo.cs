@@ -1,17 +1,14 @@
-﻿using System;
+﻿using Oracle.ManagedDataAccess.Client;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Xml.Serialization;
-using Oracle.ManagedDataAccess.Client;
-using System.Runtime.Serialization;
-using System.Runtime.CompilerServices;
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
 
     interface IDbMetaInfo {
         OracleDbType DbType { get; }
@@ -78,65 +75,6 @@ namespace Linq2Oracle {
 
             return @this => (object)getter((T)@this) ?? DBNull.Value;
         }
-    }
-
-    [Serializable]
-    public abstract class DbEntity : INotifyPropertyChanged
-    {
-        [XmlIgnore]
-        public bool IsLoaded { get; internal set; }
-
-        public bool IsChanged { get { return ChangedMap.Count > 0; } }
-
-        /// <summary>
-        /// key: ColumnIndex, value: originalValue(db value)
-        /// </summary>
-        [NonSerialized]
-        SortedList<int, object> _changedMap = _EmptyChangeMap;//有欄位變更才初始化
-
-        [OnDeserialized]
-        void Init(StreamingContext context)
-        {
-            _changedMap = _EmptyChangeMap;
-        }
-
-        static readonly SortedList<int, object> _EmptyChangeMap = new SortedList<int,object>(0);
-
-        internal SortedList<int, object> ChangedMap { get { return _changedMap; } }
-
-        protected void BeforeColumnChange([CallerMemberNameAttribute]string columnName="")
-        {
-            if (!IsLoaded)
-                return;
-
-            var tableInfo = Table.GetTableInfo(this.GetType());
-
-            DbColumn c;
-            if (!tableInfo.DbColumnMap.TryGetValue(columnName, out c))
-                return;
-
-            if (_changedMap == _EmptyChangeMap)
-                _changedMap = new SortedList<int, object>();
-
-            if (!_changedMap.ContainsKey(c.ColumnIndex))
-            {
-                _changedMap.Add(c.ColumnIndex, c.GetDbValue(this));
-                NotifyPropertyChanged("IsChanged");
-            }
-        }
-
-        internal protected virtual void OnSaving() { }
-
-        #region INotifyPropertyChanged 成員
-
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected void NotifyPropertyChanged([CallerMemberNameAttribute]string propertyName="")
-        {
-            if (PropertyChanged != null)
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-        }  
-        #endregion
     }
 
     static class Table
