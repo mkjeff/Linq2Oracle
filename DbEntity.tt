@@ -22,7 +22,7 @@ using Oracle.ManagedDataAccess.Client;
 namespace Test.DataModel {
 <# 
 foreach(var db in new[] {
-		new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="SchemaName"},
+		new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="schema"},
 }){
 using (var con = new OracleConnection(db.ConnectionString)) {
 	// Customize.If you need enum type mapping.
