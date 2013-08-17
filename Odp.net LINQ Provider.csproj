@@ -101,7 +101,6 @@
     <Compile Include="GroupingContext.cs" />
     <Compile Include="GroupingVisitor.cs" />
     <Compile Include="IQueryContext.cs" />
-    <Compile Include="LocationalIndex.cs" />
     <Compile Include="MappingAttribute.cs" />
     <Compile Include="OracleDataReaderHelper.cs" />
     <Compile Include="oracledb.cs" />

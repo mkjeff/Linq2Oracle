@@ -14,8 +14,12 @@ namespace Linq2Oracle
     /// select new { 
     ///     /* 
     ///         Grouping Aggregate function :
-    ///         g.Function(),
-    ///         g.Function(a=>a.ColumnName)
+    ///         Count()
+    ///         LongCount()
+    ///         g.Average(a=>a.X)
+    ///         g.Sum(a=>a.X)
+    ///         g.Max(a=>a.X)
+    ///         g.Min(a=>a.X)
     ///     */ 
     /// }
     /// </summary>
