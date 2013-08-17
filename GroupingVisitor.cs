@@ -34,7 +34,7 @@ namespace Linq2Oracle
         readonly Table.Info _tableInfo;
         readonly Dictionary<object, Expression> _valueGetters;//store column value getter expression 
 
-        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<ISqlGroupContext<T, TKey>, TResult>> resultSelector) where T : DbEntity
+        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> resultSelector) where T : DbEntity
         {
             return _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
         }

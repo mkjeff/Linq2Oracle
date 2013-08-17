@@ -10,20 +10,24 @@ using System.Text;
 namespace Linq2Oracle
 {
 
-    interface IDbMetaInfo {
+    interface IDbMetaInfo
+    {
         OracleDbType DbType { get; }
         int Size { get; }
     }
 
-    sealed class DbExpressionMetaInfo : IDbMetaInfo {
+    sealed class DbExpressionMetaInfo : IDbMetaInfo
+    {
         public OracleDbType DbType { get; set; }
         public int Size { get; set; }
     }
 
     [DebuggerDisplay("{ColumnName,nq},{DbType}({Size})")]
-    sealed class DbColumn : IDbMetaInfo {
+    sealed class DbColumn : IDbMetaInfo
+    {
         public DbColumn(PropertyInfo property, DbColumn c) : this(c.TableName, c.ColumnName, c.ColumnIndex, property, c._attr) { }
-        public DbColumn(string tableName, string columnName, int columnIndex, PropertyInfo property, ColumnAttribute attr) {
+        public DbColumn(string tableName, string columnName, int columnIndex, PropertyInfo property, ColumnAttribute attr)
+        {
             TableName = tableName;
             ColumnName = columnName;
             QuotesColumnName = "\"" + columnName + "\"";
@@ -56,7 +60,8 @@ namespace Linq2Oracle
         }
 
         static readonly MethodInfo propGetterMaker = typeof(DbColumn).GetMethod("GetPropertyGetter", BindingFlags.Static | BindingFlags.NonPublic);
-        static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi) {
+        static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi)
+        {
             var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
 
             Type propertyType = pi.PropertyType;
@@ -64,10 +69,12 @@ namespace Linq2Oracle
             if (propertyType.IsEnum)
                 return @this => Enum.GetName(propertyType, getter((T)@this));
 
-            if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Nullable<>)) {
+            if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
+            {
                 var nullT = propertyType.GetGenericArguments()[0];
                 if (nullT.IsEnum)
-                    return @this => {
+                    return @this =>
+                    {
                         var value = getter((T)@this);
                         return value != null ? Enum.GetName(nullT, value) : (object)DBNull.Value;
                     };
@@ -222,7 +229,8 @@ namespace Linq2Oracle
             return entity;
         }
 
-        static TableReader() {
+        static TableReader()
+        {
             // (OracleReader reader)=>
             //  new T{ 
             //      PropertyOfColumn1 = getColumn1Value(reader,column1Index),

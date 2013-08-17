@@ -85,7 +85,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DbExpression.cs" />
-    <Compile Include="DataContext.cs" />
+    <Compile Include="QueryContext.cs" />
     <Compile Include="DbEntity.cs" />
     <Compile Include="DbMetaInfo.cs" />
     <Compile Include="DbSqlHelper.cs" />

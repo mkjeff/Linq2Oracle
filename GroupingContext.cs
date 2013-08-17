@@ -42,7 +42,7 @@ namespace Linq2Oracle {
         /// <summary>
         /// Debug infomation
         /// </summary>
-        IEnumerable<TKey> KeyCollection { get { return this.Select(g => g.Key); } }
+        IEnumerable<TKey> Keys { get { return this.Select(g => g.Key); } }
 
         #region Where(Having)
         /// <summary>
@@ -50,12 +50,12 @@ namespace Linq2Oracle {
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public GroupingContextCollection<T, C, TKey, TElement> Where(Func<HavingClause<T, C>, Predicate> predicate)
+        public GroupingContextCollection<T, C, TKey, TElement> Where(Func<HavingContext<T, C>, Predicate> predicate)
         {
             return new GroupingContextCollection<T, C, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
-                filters: EnumerableEx.Concat(_having, predicate(HavingClause<T, C>.Instance)));
+                filters: EnumerableEx.Concat(_having, predicate(HavingContext<T, C>.Instance)));
         }
         #endregion
         #region Select
@@ -67,7 +67,7 @@ namespace Linq2Oracle {
         /// <param name="file"></param>
         /// <param name="line"></param>
         /// <returns></returns>
-        public IQueryContext<TResult> Select<TResult>(Expression<Func<ISqlGroupContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
+        public IQueryContext<TResult> Select<TResult>(Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             return new AggregateResult<TResult>(new Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
         }
@@ -127,14 +127,14 @@ namespace Linq2Oracle {
     }
 
     /// <summary>
-    /// SQL Having Group Source
+    /// SQL Having Clause Context
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="C"></typeparam>
-    public sealed class HavingClause<T, C> where T : DbEntity
+    public sealed class HavingContext<T, C> where T : DbEntity
     {
-        static HavingClause() { }
-        internal static readonly HavingClause<T, C> Instance = new HavingClause<T,C>();
+        static HavingContext() { }
+        internal static readonly HavingContext<T, C> Instance = new HavingContext<T,C>();
 
         #region Count / LongCount
         public Number<int> Count()
@@ -189,14 +189,19 @@ namespace Linq2Oracle {
     }
 
     /// <summary>
-    /// SQL Aggregation Group Source 
+    /// SQL Aggregation Group 
     /// </summary>
     /// <typeparam name="T"></typeparam>
     /// <typeparam name="TKey"></typeparam>
-    public interface ISqlGroupContext<T, TKey> where T : DbEntity
+    public interface IGroupingAggregateContext<T, TKey> where T : DbEntity
     {
         TKey Key { get; }
 
+        #region Count / Long Count
+        int Count();
+        long LongCount();
+        #endregion
+        #region Average
         double Average(Expression<Func<T, short>> selector);
         double Average(Expression<Func<T, int>> selector);
         double Average(Expression<Func<T, long>> selector);
@@ -210,7 +215,8 @@ namespace Linq2Oracle {
         float? Average(Expression<Func<T, float?>> selector);
         double? Average(Expression<Func<T, double?>> selector);
         decimal? Average(Expression<Func<T, decimal?>> selector);
-
+        #endregion
+        #region Sum
         int Sum(Expression<Func<T, int>> selector);
         long Sum(Expression<Func<T, long>> selector);
         float Sum(Expression<Func<T, float>> selector);
@@ -222,7 +228,8 @@ namespace Linq2Oracle {
         float? Sum(Expression<Func<T, float?>> selector);
         double? Sum(Expression<Func<T, double?>> selector);
         decimal? Sum(Expression<Func<T, decimal?>> selector);
-
+        #endregion
+        #region Max / Min
         TR? Max<TR>(Expression<Func<T, TR>> selector) where TR : struct;
         TR? Max<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
         string Max(Expression<Func<T, string>> selector);
@@ -230,9 +237,7 @@ namespace Linq2Oracle {
         TR? Min<TR>(Expression<Func<T, TR>> selector) where TR : struct;
         TR? Min<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
         string Min(Expression<Func<T, string>> selector);
-
-        int Count();
-        long LongCount();
+        #endregion    
     }
 
     [DebuggerDisplay("¬d¸ß {TableName}")]
@@ -283,7 +288,6 @@ namespace Linq2Oracle {
                 {
                     SQL = sql.ToString(),
                     SQL_PARAM = param.Cast<OracleParameter>().Select(p => p.Value).ToArray(),
-                    DATA = _data,
                 };
             }
         }
