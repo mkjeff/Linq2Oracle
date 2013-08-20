@@ -319,17 +319,17 @@ namespace Linq2Oracle
             }
             return new Predicate((sql, param) =>
             {
-                int i = 0;
+                string delimiter = string.Empty;
                 foreach (var c in _memberMap.Values)
                 {
                     var value = c.GetDbValue(groupKey);
-                    if (i++ != 0)
-                        sql.Append(" AND ");
+                    sql.Append(delimiter);
                     sql.Append(c.TableQuotesColumnName);
                     if (value == DBNull.Value)
                         sql.Append("IS NULL");
                     else
                         sql.Append(" = ").AppendParam(param, c.DbType, c.Size, value);
+                    delimiter = " AND ";
                 }
             });
         }
