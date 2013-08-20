@@ -274,7 +274,7 @@ using Oracle.ManagedDataAccess.Client;");
 
                 var topLevelProps =
                     from prop in tables
-                    orderby prop.TableName
+                    orderby prop.IsView descending, prop.TableName
                     select new ExplorerItem(prop.TableName, ExplorerItemKind.QueryableObject, prop.IsView ? ExplorerIcon.View : ExplorerIcon.Table)
                     {
                         IsEnumerable = true,
@@ -326,6 +326,8 @@ using Oracle.ManagedDataAccess.Client;");
                 return "Linq2Oracle.Enum<" + GetFriendlyName(t) + ">";
             if (nonNullable == typeof(DateTime))
                 return "Linq2Oracle.DateTime<" + GetFriendlyName(t) + ">";
+            if (nonNullable == typeof(char))
+                return "Linq2Oracle.DbExpression<" + GetFriendlyName(t) + ">";
             return "Linq2Oracle.Number<" + GetFriendlyName(t) + ">";
         }
 
