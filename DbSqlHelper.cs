@@ -5,8 +5,10 @@ using System.Data;
 using System.Linq;
 using System.Text;
 
-namespace Linq2Oracle {
-    public static class DbSqlHelper {
+namespace Linq2Oracle
+{
+    public static class DbSqlHelper
+    {
         #region Internal Members
         internal static T Init<T>(this T column, string expression, IDbMetaInfo columnInfo) where T : IDbExpression
         {
@@ -14,11 +16,13 @@ namespace Linq2Oracle {
             return column;
         }
 
-        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, int size, object value) {
+        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, int size, object value)
+        {
             return sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, size, value, ParameterDirection.Input).ParameterName);
         }
 
-        internal static StringBuilder AppendForUpdate<T, TResult>(this StringBuilder sql, int? updateWait) where T : DbEntity {
+        internal static StringBuilder AppendForUpdate<T, TResult>(this StringBuilder sql, int? updateWait) where T : DbEntity
+        {
             if (!updateWait.HasValue)
                 return sql;
             if (typeof(T) != typeof(TResult))
@@ -30,51 +34,26 @@ namespace Linq2Oracle {
             return sql.Append(" FOR UPDATE SKIP LOCKED");
         }
 
-        internal static void JoinString<T>(this T[] list, Func<T, string> stringSelector, StringBuilder sb, string separator) {
-            for (int i = 0, cnt = list.Length; i < cnt; i++) {
-                if (i != 0)
-                    sb.Append(separator);
-                sb.Append(stringSelector(list[i]));
-            }
-        }
-
-        internal static R[] ConvertAll<T, R>(this T[] array, Converter<T, R> converter) {
+        internal static R[] ConvertAll<T, R>(this T[] array, Converter<T, R> converter)
+        {
             return Array.ConvertAll(array, converter);
         }
 
-        internal static StringBuilder MappingAlias(this StringBuilder sql, int startIndex, IEnumerable<IQueryContext> mapping) {
+        internal static StringBuilder MappingAlias(this StringBuilder sql, int startIndex, IEnumerable<IQueryContext> mapping)
+        {
             int i = 0;
             foreach (var alias in mapping)
                 sql.Replace(alias.TableName + ".", "t" + i++ + ".", startIndex, sql.Length - startIndex);
             return sql;
         }
 
-        internal static StringBuilder MappingAlias(this StringBuilder sql, int startIndex, IQueryContext mapping) {
+        internal static StringBuilder MappingAlias(this StringBuilder sql, int startIndex, IQueryContext mapping)
+        {
             return sql.Replace(mapping.TableName + ".", "t0.", startIndex, sql.Length - startIndex);
         }
 
-        internal static object ToDbValue(this object value) {
-            if (value == null)
-                return DBNull.Value;
-
-            if (value is string)
-                return value;
-
-            Type vType = value.GetType();
-
-            if (vType.IsEnum)
-                return Enum.GetName(vType, value);
-
-            if (vType.IsGenericType && (vType.GetGenericTypeDefinition() == typeof(Nullable<>))) {
-                vType = vType.GetGenericArguments()[0];
-                if (vType.IsEnum)
-                    return Enum.GetName(vType, value);
-            }
-
-            return value;
-        }
-
-        internal static StringBuilder AppendWhere(this StringBuilder sql, OracleParameterCollection param, IEnumerable<Predicate> filters) {
+        internal static StringBuilder AppendWhere(this StringBuilder sql, OracleParameterCollection param, IEnumerable<Predicate> filters)
+        {
             if (filters.IsEmpty())
                 return sql;
             sql.Append(" WHERE ");
@@ -103,7 +82,8 @@ namespace Linq2Oracle {
             return sql;
         }
 
-        internal static StringBuilder AppendOrder(this StringBuilder sql, IEnumerable<SortDescription> orders) {
+        internal static StringBuilder AppendOrder(this StringBuilder sql, IEnumerable<SortDescription> orders)
+        {
             if (orders.IsEmpty())
                 return sql;
             sql.Append(" ORDER BY ");
@@ -150,7 +130,7 @@ namespace Linq2Oracle {
                         if (values[i] == null)
                             sql.Append("NULL");
                         else
-                            sql.AppendParam(param, @this.DbType, @this.Size, values[i].ToDbValue());
+                            sql.AppendParam(param, @this.DbType, @this.Size, @this.ToDbValue(values[i]));
                         sql.Append(',');
                     }
 
@@ -193,12 +173,12 @@ namespace Linq2Oracle {
                     sql.Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, t.Item1.ToDbValue());
+                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, columns.Item1.ToDbValue(t.Item1));
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, t.Item2.ToDbValue());
+                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, columns.Item2.ToDbValue(t.Item2));
 
                     sql.Append(')');
                 }
@@ -256,17 +236,17 @@ namespace Linq2Oracle {
                     sql.Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, t.Item1.ToDbValue());
+                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, columns.Item1.ToDbValue(t.Item1));
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, t.Item2.ToDbValue());
+                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, columns.Item2.ToDbValue(t.Item2));
 
                     sql.Append(',');
 
                     if (t.Item3 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item3.DbType, columns.Item3.Size, t.Item3.ToDbValue());
+                    else sql.AppendParam(param, columns.Item3.DbType, columns.Item3.Size, columns.Item3.ToDbValue(t.Item3));
 
                     sql.Append(')');
                 }

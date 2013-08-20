@@ -304,6 +304,25 @@ namespace Linq2Oracle
             return _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
         }
 
+        static object ToDbValue<TKey>(TKey value)
+        {
+            if (value == null)
+                return DBNull.Value;
+
+            Type vType = value.GetType();
+
+            if (vType.IsValueType)
+            {
+                if (vType.IsEnum)
+                    return Enum.GetName(vType, value);
+
+                vType = Nullable.GetUnderlyingType(vType);
+                if (vType != null && vType.IsEnum)
+                    return Enum.GetName(vType, value);
+            }
+            return value;
+        }
+
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey)
         {
             if (_memberMap == null)
@@ -314,8 +333,9 @@ namespace Linq2Oracle
                 var c = _memberMap.Values.First();
                 if (groupKey == null)
                     return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
+
                 return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" = ")
-                    .AppendParam(param, c.DbType, c.Size, groupKey.ToDbValue())); // here is different with complex type of Key
+                    .AppendParam(param, c.DbType, c.Size, ToDbValue(groupKey))); // here is different with complex type of Key
             }
             return new Predicate((sql, param) =>
             {

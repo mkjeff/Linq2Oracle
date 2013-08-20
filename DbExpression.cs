@@ -26,70 +26,91 @@ namespace Linq2Oracle
 
     public class DbExpression<T> : DbExpression
     {
+        [Obsolete("You should not use this conversion operator.", true)]
+        public static implicit operator DbExpression<T>(T value)
+        {
+            throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "T => DbExpression<T> conversion operator can't use.");
+        }
+
+        internal protected virtual object ToDbValue(T value)
+        {
+            return value;
+        }
+
         public virtual Predicate Equals(T value)
         {
             return value == null
-                ? new Predicate((sql, param) => sql.Append(Expression).Append(" IS NULL"))
+                ? IsNull
                 : new Predicate((sql, param) => sql.Append(Expression).Append(" = ").AppendParam(param, DbType, Size, value));
         }
+
         public virtual Predicate NotEquals(T value)
         {
             return value == null
-                ? new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL"))
+                ? IsNotNull
                 : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, Size, value));
         }
-        public static Predicate operator ==(DbExpression<T> columna, DbExpression<T> columnb)
+
+        public static Predicate operator ==(DbExpression<T> a, DbExpression<T> b)
         {
-            return new Predicate((sql, param) => sql.Append(columna.Expression).Append(" = ").Append(columnb.Expression));
+            if (object.ReferenceEquals(a, null))
+                return b.IsNull;
+            if (object.ReferenceEquals(b, null))
+                return a.IsNull;
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" = ").Append(b.Expression));
         }
-        public static Predicate operator !=(DbExpression<T> columna, DbExpression<T> columnb)
+        public static Predicate operator !=(DbExpression<T> a, DbExpression<T> b)
         {
-            return new Predicate((sql, param) => sql.Append(columna.Expression).Append(" <> ").Append(columnb.Expression));
+            if (object.ReferenceEquals(a, null))
+                return b.IsNotNull;
+            if (object.ReferenceEquals(b, null))
+                return a.IsNotNull;
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" <> ").Append(b.Expression));
         }
-        public static Predicate operator ==(DbExpression<T> column, T value)
+        public static Predicate operator ==(DbExpression<T> a, T b)
         {
-            return column.Equals(value);
+            return a.Equals(b);
         }
-        public static Predicate operator ==(T value, DbExpression<T> column)
+        public static Predicate operator ==(T a, DbExpression<T> b)
         {
-            return column.Equals(value);
+            return b.Equals(a);
         }
-        public static Predicate operator !=(DbExpression<T> column, T value)
+        public static Predicate operator !=(DbExpression<T> a, T b)
         {
-            return column.NotEquals(value);
+            return a.NotEquals(b);
         }
-        public static Predicate operator !=(T value, DbExpression<T> column)
+        public static Predicate operator !=(T a, DbExpression<T> b)
         {
-            return column.NotEquals(value);
+            return b.NotEquals(a);
         }
 
-        public static Predicate operator >(T value, DbExpression<T> column) { return column < value; }
-        public static Predicate operator >(DbExpression<T> column, T value)
+        public static Predicate operator >(T a, DbExpression<T> b) { return b < a; }
+        public static Predicate operator >(DbExpression<T> a, T b)
         {
-            if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(column.Expression).Append(" > ").AppendParam(param, column.DbType, column.Size, value));
+            if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" > ").AppendParam(param, a.DbType, a.Size, b));
         }
-        public static Predicate operator >=(T value, DbExpression<T> column) { return column <= value; }
-        public static Predicate operator >=(DbExpression<T> column, T value)
+        public static Predicate operator >=(T a, DbExpression<T> b) { return b <= a; }
+        public static Predicate operator >=(DbExpression<T> a, T b)
         {
-            if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(column.Expression).Append(" >= ").AppendParam(param, column.DbType, column.Size, value));
+            if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" >= ").AppendParam(param, a.DbType, a.Size, b));
         }
-        public static Predicate operator <(T value, DbExpression<T> column) { return column > value; }
-        public static Predicate operator <(DbExpression<T> column, T value)
+        public static Predicate operator <(T a, DbExpression<T> b) { return b > a; }
+        public static Predicate operator <(DbExpression<T> a, T b)
         {
-            if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(column.Expression).Append(" < ").AppendParam(param, column.DbType, column.Size, value));
+            if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" < ").AppendParam(param, a.DbType, a.Size, b));
         }
-        public static Predicate operator <=(T value, DbExpression<T> column) { return column >= value; }
-        public static Predicate operator <=(DbExpression<T> column, T value)
+        public static Predicate operator <=(T a, DbExpression<T> b) { return b >= a; }
+        public static Predicate operator <=(DbExpression<T> a, T b)
         {
-            if (value == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(column.Expression).Append(" <= ").AppendParam(param, column.DbType, column.Size, value));
+            if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" <= ").AppendParam(param, a.DbType, a.Size, b));
         }
 
-        public Predicate IsNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NULL")); } }
-        public Predicate IsNotNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL")); } }
+        Predicate IsNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NULL")); } }
+        Predicate IsNotNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL")); } }
     }
 
     public sealed class String : DbExpression<string>
@@ -164,6 +185,24 @@ namespace Linq2Oracle
 
     public sealed class Enum<T> : DbExpression<T>
     {
+        internal protected override object ToDbValue(T value)
+        {
+            if (value == null)
+                return DBNull.Value;
+
+            Type vType = value.GetType();
+
+            if (vType.IsValueType)
+            {
+                if (vType.IsEnum)
+                    return Enum.GetName(vType, value);
+
+                vType = Nullable.GetUnderlyingType(vType);
+                if (vType != null && vType.IsEnum)
+                    return Enum.GetName(vType, value);
+            }
+            throw new DalException(DbErrorCode.E_DB_UNKNOWN_DATATYPE, "Unknow data type :" + typeof(T).ToString());
+        }
     }
 
     public abstract class RangeType<T> : DbExpression<T>
