@@ -1,0 +1,41 @@
+﻿<#@ output extension=".cs" encoding="UNICODE" #>
+<#@ assembly name="mscorlib.dll" #>
+<#@ assembly name="System.Core.dll" #>
+<#@ assembly name="System.Xml.dll" #>
+<#@ assembly name="System.Data.dll" #>
+<#@ assembly name="Oracle.ManagedDataAccess" #>
+<#@ assembly name="System.Data.DataSetExtensions.dll" #>
+<#@ import namespace="System" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Data" #>
+<#@ import namespace="Oracle.ManagedDataAccess.Client" #>
+<#@ template language="C#v3.5" debug="True" #>
+<# 
+var connectionInfo = new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="schema"};
+
+using (var con = new OracleConnection(connectionInfo.ConnectionString)) {	
+    con.Open();
+	var tables = from schema in new string[] { connectionInfo.Schema }
+	             from t in con.GetSchema("Tables",new string[]{ schema }).AsEnumerable()
+				 let tableName = t.Field<string>("table_name")
+				 orderby tableName
+				 select tableName;
+#>
+using System.IO;
+using Linq2Oracle;
+using Oracle.ManagedDataAccess.Client;
+
+namespace Test.DataModel {
+	public partial class DbContext : OracleDB{
+		public DbContext(OracleConnection connection, TextWriter logger = null):base(connection,logger) { }
+<# 
+foreach(var table in tables){
+#>
+		public EntityTable<<#= table #>,<#= table #>.Columns> <#= table #> { get { return new EntityTable<<#= table #>,<#= table #>.Columns>(this); } }
+<#
+}
+}
+#>
+	}
+}
