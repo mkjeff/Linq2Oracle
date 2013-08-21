@@ -69,17 +69,13 @@ namespace Linq2Oracle
             if (propertyType.IsEnum)
                 return @this => Enum.GetName(propertyType, getter((T)@this));
 
-            if (propertyType.IsGenericType && propertyType.GetGenericTypeDefinition() == typeof(Nullable<>))
-            {
-                var nullT = propertyType.GetGenericArguments()[0];
-                if (nullT.IsEnum)
-                    return @this =>
-                    {
-                        var value = getter((T)@this);
-                        return value != null ? Enum.GetName(nullT, value) : (object)DBNull.Value;
-                    };
-            }
-
+            propertyType = Nullable.GetUnderlyingType(propertyType);
+            if (propertyType != null && propertyType.IsEnum)
+                return @this =>
+                {
+                    var value = getter((T)@this);
+                    return value != null ? Enum.GetName(propertyType, value) : (object)DBNull.Value;
+                };
             return @this => (object)getter((T)@this) ?? DBNull.Value;
         }
     }
