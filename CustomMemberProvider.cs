@@ -18,16 +18,16 @@ namespace Linq2Oracle.LinqPad
         static readonly MethodInfo propGetterMaker = typeof(CustomMemberProvider).GetMethod("GetPropertyGetterDelegate", BindingFlags.Static | BindingFlags.NonPublic);
         static Func<object, object> GetPropertyGetterDelegate<T, TProperty>(PropertyInfo pi)
         {
-            if (pi.PropertyType.IsValueType)
-            {
-                var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
-                return @this => (object)getter((T)@this);
-            }
-            else
-            {
-                var getter = (Func<T, object>)Delegate.CreateDelegate(typeof(Func<T, object>), pi.GetGetMethod());
-                return @this => getter((T)@this);
-            }
+            //if (pi.PropertyType.IsValueType)
+            //{
+            var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
+            return @this => (object)getter((T)@this);
+            //}
+            //else
+            //{
+            //    var getter = (Func<T, object>)Delegate.CreateDelegate(typeof(Func<T, object>), pi.GetGetMethod());
+            //    return @this => getter((T)@this);
+            //}
         }
 
         static Func<object, object> GetPropertyGetter(PropertyInfo property)
