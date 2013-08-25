@@ -71,9 +71,9 @@ namespace Linq2Oracle
             };
             _closure = new Closure
             {
-                Filters = Enumerable.Empty<Predicate>(),
-                Orderby = Enumerable.Empty<SortDescription>(),
-                Tables = EnumerableEx.Return((IQueryContext)this)
+                Filters = EmptyList<Predicate>.Instance,
+                Orderby = EmptyList<SortDescription>.Instance,
+                Tables = new List<IQueryContext> { this }
             };
             _data = GetData();
         }
@@ -84,9 +84,9 @@ namespace Linq2Oracle
             _genSql = genSql;
             _closure = new Closure
             {
-                Filters = Enumerable.Empty<Predicate>(),
-                Orderby = Enumerable.Empty<SortDescription>(),
-                Tables = EnumerableEx.Return((IQueryContext)this)
+                Filters = EmptyList<Predicate>.Instance,
+                Orderby = EmptyList<SortDescription>.Instance,
+                Tables = new List<IQueryContext> { this }
             };
             _projection = projector;
             _data = GetData();
@@ -181,8 +181,8 @@ namespace Linq2Oracle
             if (count <= 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Filters = EmptyList<Predicate>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -210,8 +210,8 @@ namespace Linq2Oracle
             if (count < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Filters = EmptyList<Predicate>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -238,8 +238,8 @@ namespace Linq2Oracle
             if (sum < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Filters = EmptyList<Predicate>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -272,8 +272,8 @@ namespace Linq2Oracle
         {
             int skip = (pageNo - 1) * pageSize;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Filters = EmptyList<Predicate>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -303,11 +303,11 @@ namespace Linq2Oracle
         public QueryContext<T, C, TResult> OrderBy(Func<C, IEnumerable<ColumnSortDescription>> keySelector)
         {
             var newC = _closure;
-            newC.Orderby = EnumerableEx.Concat(
+            newC.Orderby = new List<SortDescription>(EnumerableEx.Concat(
                 _closure.Orderby,
                 from order in keySelector(EntityTable<T, C>.ColumnsDefine)
                 where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-                select new SortDescription("t0." + order.ColumnName, order.Descending));
+                select new SortDescription("t0." + order.ColumnName, order.Descending)));
             return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
 
         }
@@ -332,7 +332,7 @@ namespace Linq2Oracle
         QueryContext<T, C, TResult> OrderBy(string expr,bool desc=false)
         {
             var newC = _closure;
-            newC.Orderby = EnumerableEx.Concat(_closure.Orderby, new SortDescription(expr, desc));
+            newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
             return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
         }
         #endregion
@@ -343,7 +343,7 @@ namespace Linq2Oracle
             if (!filter.IsVaild)
                 return this;
             var newC = _closure;
-            newC.Filters = EnumerableEx.Concat(_closure.Filters, filter);
+            newC.Filters = new List<Predicate>(_closure.Filters) { filter };
             return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
         }
         #endregion
@@ -364,7 +364,7 @@ namespace Linq2Oracle
             var innerContext = collectionSelector(EntityTable<T, C>.ColumnsDefine);
 
             var newC = _closure;
-            newC.Tables = EnumerableEx.Concat(_closure.Tables, innerContext);
+            newC.Tables = new List<IQueryContext>(_closure.Tables) { innerContext };
 
             return new SelectManyContext<T, C, TResult, _>(
                 db: _db,
@@ -405,7 +405,7 @@ namespace Linq2Oracle
         public GroupingContextCollection<T, C, TKey, TResult> GroupBy<TKey>(Expression<Func<T, TKey>> keySelector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             var newC = _closure;
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new GroupingContextCollection<T, C, TKey, TResult>(
                 new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC),
                 keySelector);
@@ -429,8 +429,8 @@ namespace Linq2Oracle
         #region Intersect / Except / Union /Contact
         QueryContext<T, C, TResult> SetOp(QueryContext<T, C, TResult> other, string op)
         {
-            var thisC = _closure; thisC.Orderby = Enumerable.Empty<SortDescription>();
-            var otherC = other._closure; otherC.Orderby = Enumerable.Empty<SortDescription>();
+            var thisC = _closure; thisC.Orderby = EmptyList<SortDescription>.Instance;
+            var otherC = other._closure; otherC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<T, C, TResult>(
                 _db,
                 _projection,
@@ -539,7 +539,7 @@ namespace Linq2Oracle
         object _AggregateFunction(string expr)
         {
             var cc = _closure;
-            cc.Orderby = Enumerable.Empty<SortDescription>();
+            cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder();
@@ -554,7 +554,7 @@ namespace Linq2Oracle
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
         public int Count()
         {
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             var selection = _projection.Value.SelectSql;
             using (var cmd = _db.CreateCommand())
             {
@@ -585,7 +585,7 @@ namespace Linq2Oracle
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
         public bool Any()
         {
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM (");
@@ -608,7 +608,7 @@ namespace Linq2Oracle
             var filter = predicate(EntityTable<T, C>.ColumnsDefine);
             if (!filter.IsVaild)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "All±ø¥ó¦³»~");
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM (");
@@ -657,7 +657,7 @@ namespace Linq2Oracle
 
         void GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
         {
-            var newC = _closure; newC.Orderby = Enumerable.Empty<SortDescription>();
+            var newC = _closure; newC.Orderby = EmptyList<SortDescription>.Instance;
             if (newC.Distinct)
                 selection = "DISTINCT " + selection;
             _genSql(sql, selection, newC, param);
@@ -742,9 +742,9 @@ namespace Linq2Oracle
 
     struct Closure
     {
-        public IEnumerable<IQueryContext> Tables;
-        public IEnumerable<Predicate> Filters;
-        public IEnumerable<SortDescription> Orderby;
+        public IReadOnlyList<IQueryContext> Tables;
+        public IReadOnlyList<Predicate> Filters;
+        public IReadOnlyList<SortDescription> Orderby;
         public bool Distinct;
 
         //public bool IncludeTotalCount;

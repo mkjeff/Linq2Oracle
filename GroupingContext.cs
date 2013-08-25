@@ -100,7 +100,7 @@ namespace Linq2Oracle {
                 var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
                 var newClosure = _context._closure;
                 if (keyPredicate.IsVaild)
-                    newClosure.Filters = EnumerableEx.Concat(_context._closure.Filters, keyPredicate);
+                    newClosure.Filters = new List<Predicate>(_context._closure.Filters) { keyPredicate };
 
                 yield return new GroupingContext<T, C, TKey, TElement>(key, _context.Db, _context._projection, _context._genSql, newClosure);
             }

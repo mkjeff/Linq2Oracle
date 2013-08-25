@@ -69,4 +69,9 @@ namespace Linq2Oracle
                     yield return item;
         }
     }
+
+    static class EmptyList<T>
+    {
+        public static readonly IReadOnlyList<T> Instance = new List<T>();
+    }
 }
