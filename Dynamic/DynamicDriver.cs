@@ -282,8 +282,11 @@ using Oracle.ManagedDataAccess.Client;");
                         Children = (from column in prop.Columns
                                     orderby column.IsPrimaryKey descending, column.ColumnName
                                     select new ExplorerItem(column.ColumnName + " (" + FormatTypeName(column.ClrType, false) + ")",
-                                            column.ColumnName.Contains("ID") && !column.IsPrimaryKey ? ExplorerItemKind.ReferenceLink : ExplorerItemKind.Property,
-                                            column.IsPrimaryKey ? ExplorerIcon.Key : ExplorerIcon.Column)).ToList()
+                                            ExplorerItemKind.Property,
+                                            column.IsPrimaryKey ? ExplorerIcon.Key : ExplorerIcon.Column)
+                                            {
+                                                ToolTipText = column.ColumnName + " " + column.DbType.ToString().ToUpper() + "(" + column.Length + ")" + (column.IsNullable ? string.Empty : " NOT NULL")
+                                            }).ToList()
                     };
 
                 return topLevelProps.ToList();
