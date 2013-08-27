@@ -16,9 +16,9 @@ namespace Linq2Oracle
             return column;
         }
 
-        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, int size, object value)
+        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, object value)
         {
-            return sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, size, value, ParameterDirection.Input).ParameterName);
+            return sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, value, ParameterDirection.Input).ParameterName);
         }
 
         internal static StringBuilder AppendForUpdate<T, TResult>(this StringBuilder sql, int? updateWait) where T : DbEntity
@@ -130,7 +130,7 @@ namespace Linq2Oracle
                         if (values[i] == null)
                             sql.Append("NULL");
                         else
-                            sql.AppendParam(param, @this.DbType, @this.Size, @this.ToDbValue(values[i]));
+                            sql.AppendParam(param, @this.DbType, values[i]);
                         sql.Append(',');
                     }
 
@@ -173,12 +173,12 @@ namespace Linq2Oracle
                     sql.Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, columns.Item1.ToDbValue(t.Item1));
+                    else sql.AppendParam(param, columns.Item1.DbType, t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, columns.Item2.ToDbValue(t.Item2));
+                    else sql.AppendParam(param, columns.Item2.DbType, t.Item2);
 
                     sql.Append(')');
                 }
@@ -236,17 +236,17 @@ namespace Linq2Oracle
                     sql.Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, columns.Item1.Size, columns.Item1.ToDbValue(t.Item1));
+                    else sql.AppendParam(param, columns.Item1.DbType, t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, columns.Item2.Size, columns.Item2.ToDbValue(t.Item2));
+                    else sql.AppendParam(param, columns.Item2.DbType, t.Item2);
 
                     sql.Append(',');
 
                     if (t.Item3 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item3.DbType, columns.Item3.Size, columns.Item3.ToDbValue(t.Item3));
+                    else sql.AppendParam(param, columns.Item3.DbType, t.Item3);
 
                     sql.Append(')');
                 }

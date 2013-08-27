@@ -304,25 +304,6 @@ namespace Linq2Oracle
             return _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
         }
 
-        static object ToDbValue<TKey>(TKey value)
-        {
-            if (value == null)
-                return DBNull.Value;
-
-            Type vType = value.GetType();
-
-            if (vType.IsValueType)
-            {
-                if (vType.IsEnum)
-                    return Enum.GetName(vType, value);
-
-                vType = Nullable.GetUnderlyingType(vType);
-                if (vType != null && vType.IsEnum)
-                    return Enum.GetName(vType, value);
-            }
-            return value;
-        }
-
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey)
         {
             if (_memberMap == null)
@@ -335,20 +316,20 @@ namespace Linq2Oracle
                     return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
 
                 return new Predicate((sql, param) => sql.Append(c.TableQuotesColumnName).Append(" = ")
-                    .AppendParam(param, c.DbType, c.Size, ToDbValue(groupKey))); // here is different with complex type of Key
+                    .AppendParam(param, c.DbType, groupKey)); // here is different with complex type of Key
             }
             return new Predicate((sql, param) =>
             {
                 string delimiter = string.Empty;
                 foreach (var c in _memberMap.Values)
                 {
-                    var value = c.GetDbValue(groupKey);
+                    var value = c.GetValue(groupKey);
                     sql.Append(delimiter);
                     sql.Append(c.TableQuotesColumnName);
-                    if (value == DBNull.Value)
+                    if (value == null)
                         sql.Append("IS NULL");
                     else
-                        sql.Append(" = ").AppendParam(param, c.DbType, c.Size, value);
+                        sql.Append(" = ").AppendParam(param, c.DbType, value);
                     delimiter = " AND ";
                 }
             });

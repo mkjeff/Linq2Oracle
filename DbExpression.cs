@@ -32,23 +32,18 @@ namespace Linq2Oracle
             throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "T => DbExpression<T> conversion operator can't use.");
         }
 
-        internal protected virtual object ToDbValue(T value)
-        {
-            return value;
-        }
-
         public virtual Predicate Equals(T value)
         {
             return value == null
                 ? IsNull
-                : new Predicate((sql, param) => sql.Append(Expression).Append(" = ").AppendParam(param, DbType, Size, value));
+                : new Predicate((sql, param) => sql.Append(Expression).Append(" = ").AppendParam(param, DbType, value));
         }
 
         public virtual Predicate NotEquals(T value)
         {
             return value == null
                 ? IsNotNull
-                : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, Size, value));
+                : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, value));
         }
 
         public static Predicate operator ==(DbExpression<T> a, DbExpression<T> b)
@@ -88,25 +83,25 @@ namespace Linq2Oracle
         public static Predicate operator >(DbExpression<T> a, T b)
         {
             if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" > ").AppendParam(param, a.DbType, a.Size, b));
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" > ").AppendParam(param, a.DbType, b));
         }
         public static Predicate operator >=(T a, DbExpression<T> b) { return b <= a; }
         public static Predicate operator >=(DbExpression<T> a, T b)
         {
             if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" >= ").AppendParam(param, a.DbType, a.Size, b));
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" >= ").AppendParam(param, a.DbType, b));
         }
         public static Predicate operator <(T a, DbExpression<T> b) { return b > a; }
         public static Predicate operator <(DbExpression<T> a, T b)
         {
             if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" < ").AppendParam(param, a.DbType, a.Size, b));
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" < ").AppendParam(param, a.DbType, b));
         }
         public static Predicate operator <=(T a, DbExpression<T> b) { return b >= a; }
         public static Predicate operator <=(DbExpression<T> a, T b)
         {
             if (b == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "Cannot apply comparison operator with a null value argument.");
-            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" <= ").AppendParam(param, a.DbType, a.Size, b));
+            return new Predicate((sql, param) => sql.Append(a.Expression).Append(" <= ").AppendParam(param, a.DbType, b));
         }
 
         Predicate IsNull { get { return new Predicate((sql, param) => sql.Append(Expression).Append(" IS NULL")); } }
@@ -119,30 +114,30 @@ namespace Linq2Oracle
         {
             return string.IsNullOrEmpty(value)
                 ? new Predicate((sql, param) => sql.Append(Expression).Append(" IS NULL"))
-                : new Predicate((sql, param) => sql.Append(Expression).Append(" = ").AppendParam(param, DbType, Size, value));
+                : new Predicate((sql, param) => sql.Append(Expression).Append(" = ").AppendParam(param, DbType, value));
         }
         public override Predicate NotEquals(string value)
         {
             return string.IsNullOrEmpty(value)
                 ? new Predicate((sql, param) => sql.Append(Expression).Append(" IS NOT NULL"))
-                : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, Size, value));
+                : new Predicate((sql, param) => sql.Append(Expression).Append(" <> ").AppendParam(param, DbType, value));
         }
         public Predicate StartsWith(string str)
         {
             if (string.IsNullOrEmpty(str)) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "String Column StartWith argument can not be null or empty");
-            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, Size, str + "%"));
+            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, str + "%"));
         }
 
         public Predicate EndsWith(string str)
         {
             if (string.IsNullOrEmpty(str)) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "String Column EndWith argument can not be null or empty");
-            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, Size, "%" + str));
+            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, "%" + str));
         }
 
         public Predicate Contains(string str)
         {
             if (string.IsNullOrEmpty(str)) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "String Column Contains argument can not be null or empty");
-            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, Size, "%" + str + "%"));
+            return new Predicate((sql, param) => sql.Append(Expression).Append(" LIKE ").AppendParam(param, DbType, "%" + str + "%"));
         }
 
         public String Substring(int startIndex, int length)
@@ -185,24 +180,6 @@ namespace Linq2Oracle
 
     public sealed class Enum<T> : DbExpression<T>
     {
-        internal protected override object ToDbValue(T value)
-        {
-            if (value == null)
-                return DBNull.Value;
-
-            Type vType = value.GetType();
-
-            if (vType.IsValueType)
-            {
-                if (vType.IsEnum)
-                    return Enum.GetName(vType, value);
-
-                vType = Nullable.GetUnderlyingType(vType);
-                if (vType != null && vType.IsEnum)
-                    return Enum.GetName(vType, value);
-            }
-            throw new DalException(DbErrorCode.E_DB_UNKNOWN_DATATYPE, "Unknow data type :" + typeof(T).ToString());
-        }
     }
 
     public abstract class RangeType<T> : DbExpression<T>
@@ -211,7 +188,7 @@ namespace Linq2Oracle
         {
             if (start == null || end == null) throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "SQL Between condition can not be NULL");
             return new Predicate((sql, param) => sql.Append(Expression)
-                .Append(" BETWEEN ").AppendParam(param, DbType, Size, start).Append(" AND ").AppendParam(param, DbType, Size, end));
+                .Append(" BETWEEN ").AppendParam(param, DbType, start).Append(" AND ").AppendParam(param, DbType, end));
         }
     }
 

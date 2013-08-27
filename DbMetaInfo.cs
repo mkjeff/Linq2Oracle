@@ -54,7 +54,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="this">entity object</param>
         /// <returns>return DBNull if column value is null</returns>
-        public object GetDbValue(object @this)
+        internal object GetValue(object @this)
         {
             return _propGetter(@this);
         }
@@ -63,20 +63,7 @@ namespace Linq2Oracle
         static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi)
         {
             var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
-
-            Type propertyType = pi.PropertyType;
-
-            if (propertyType.IsEnum)
-                return @this => Enum.GetName(propertyType, getter((T)@this));
-
-            propertyType = Nullable.GetUnderlyingType(propertyType);
-            if (propertyType != null && propertyType.IsEnum)
-                return @this =>
-                {
-                    var value = getter((T)@this);
-                    return value != null ? Enum.GetName(propertyType, value) : (object)DBNull.Value;
-                };
-            return @this => (object)getter((T)@this) ?? DBNull.Value;
+            return @this => (object)getter((T)@this);
         }
     }
 
