@@ -50,7 +50,7 @@ namespace Linq2Oracle
                 return new
                 {
                     SQL = sb.ToString(),
-                    QL_PARAM = param.Cast<OracleParameter>().Select(p => p.Value).ToArray()
+                    QL_PARAM = param.Cast<OracleParameter>().Select(p => p.Value).ToArray(),
                 };
             }
         }
@@ -329,7 +329,7 @@ namespace Linq2Oracle
             return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine).Expression, true);
         }
 
-        QueryContext<T, C, TResult> OrderBy(string expr,bool desc=false)
+        QueryContext<T, C, TResult> OrderBy(string expr, bool desc = false)
         {
             var newC = _closure;
             newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
@@ -546,7 +546,7 @@ namespace Linq2Oracle
                 _genSql(sql, expr, cc, cmd.Parameters);
                 cmd.CommandText = sql.ToString();
                 var result = _db.ExecuteScalar(cmd);
-                return result == DBNull.Value ? null : result;           
+                return result == DBNull.Value ? null : result;
             }
         }
         #endregion
