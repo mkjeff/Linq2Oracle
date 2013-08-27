@@ -237,7 +237,7 @@ using Oracle.ManagedDataAccess.Client;");
                             .Append("[Column(Size=").Append(c.Length).Append(", DbType=OracleDbType.").Append(c.DbType).Append(", IsNullable = ").Append(c.IsNullable ? "true" : "false").Append(", IsPrimarykey = ").Append(c.IsPrimaryKey ? "true" : "false").AppendLine(")]")
                             .Append("public ").Append(GetFriendlyName(c.ClrType)).Append(" ").Append(c.ColumnName).AppendLine("{")
                             .Append("get{ return _").Append(c.ColumnName).AppendLine(";}")
-                            .AppendLine("set{ ")
+                            .AppendLine(table.IsView ? "private set{ " : "set{ ")
                             .Append("if(_").Append(c.ColumnName).AppendLine("!= value){")
                             .AppendLine("BeforeColumnChange();")
                             .Append("_").Append(c.ColumnName).AppendLine(" = value;")
