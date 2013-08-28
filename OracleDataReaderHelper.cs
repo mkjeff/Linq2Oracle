@@ -43,6 +43,7 @@ namespace Linq2Oracle
         static readonly ConcurrentDictionary<DbTypeKey, MethodInfo> _GetValueMethodMap = new ConcurrentDictionary<DbTypeKey, MethodInfo>();
         static readonly MethodInfo GetOraString;
         static readonly MethodInfo GetBinary;
+        static readonly MethodInfo GetBlob;
         static readonly MethodInfo GetNullableDate;
         static readonly MethodInfo GetNullableTimeStamp;
         static readonly MethodInfo GetNullableEnum_T;
@@ -68,6 +69,7 @@ namespace Linq2Oracle
             var type = typeof(OracleDataReaderHelper);
             GetOraString = type.GetInternalMethod("_GetOraString");
             GetBinary = type.GetInternalMethod("_GetBinary");
+            GetBlob = type.GetInternalMethod("_GetBlob");
             GetNullableDate = type.GetInternalMethod("_GetNullableDate");
             GetNullableTimeStamp = type.GetInternalMethod("_GetNullableTimeStamp");
             GetNullableEnum_T = type.GetInternalMethod("_GetNullableEnum");
@@ -102,7 +104,11 @@ namespace Linq2Oracle
             {
                 if (clrType == typeof(char)) return GetOraChar;
                 if (clrType == typeof(string)) return GetOraString;
-                if (clrType == typeof(byte[])) return GetBinary;
+                if (clrType == typeof(byte[]))
+                    if (dbType == OracleDbType.Raw)
+                        return GetBinary;
+                    else if (dbType == OracleDbType.Blob)
+                        return GetBlob;
 
                 if (isNullable)
                 {
@@ -145,6 +151,12 @@ namespace Linq2Oracle
         static byte[] _GetBinary(this OracleDataReader reader, int index)
         {
             var val = reader.GetOracleBinary(index);
+            return val.IsNull ? null : val.Value;
+        }
+
+        static byte[] _GetBlob(this OracleDataReader reader, int index)
+        {
+            var val = reader.GetOracleBlob(index);
             return val.IsNull ? null : val.Value;
         }
 
