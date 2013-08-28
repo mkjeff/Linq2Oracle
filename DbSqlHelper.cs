@@ -116,26 +116,23 @@ namespace Linq2Oracle
                 }
 
                 // Oracle SQL有限制IN(...) list大小不能超過1000筆, 
-                // 所以將超過1000筆的IN敘述拆解成columnName IN(...) OR columnName IN(...)條件
-                const int size = 1000;
-                int pageNum = (int)Math.Ceiling((double)values.Length / size);
+                // 如果筆數太多應該考慮使用其他查詢條件
 
-                for (int p = 0; p < pageNum; p++)
+                sql.Append(@this.Expression).Append(" IN (");
+
+                string delimiter = string.Empty;
+                foreach (var t in values)
                 {
-                    if (p != 0) sql.Append(" OR ");
+                    sql.Append(delimiter);
 
-                    sql.Append(@this.Expression).Append(" IN (");
-                    for (int i = p * size, offset = (p + 1) * size; i < offset && i < values.Length; i++)
-                    {
-                        if (values[i] == null)
-                            sql.Append("NULL");
-                        else
-                            sql.AppendParam(param, @this.DbType, values[i]);
-                        sql.Append(',');
-                    }
-
-                    sql.Remove(sql.Length - 1, 1).Append(')');
+                    if (t == null)
+                        sql.Append("NULL");
+                    else
+                        sql.AppendParam(param, @this.DbType, t);
+                    delimiter = ", ";
                 }
+
+                sql.Append(')');
             });
         }
 
@@ -150,7 +147,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region Where (Column1,Column2) In (...)
-        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, params Tuple<T1, T2>[] values)
+        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, params Tuple<T1, T2>[] values)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
         {
@@ -162,48 +159,50 @@ namespace Linq2Oracle
                     return;
                 }
 
-                sql.Append('(').Append(columns.Item1.Expression).Append(',').Append(columns.Item2.Expression)
+                sql.Append('(')
+                    .Append(@this.Item1.Expression).Append(',')
+                    .Append(@this.Item2.Expression)
                    .Append(") IN (");
 
-                for (int i = 0, cnt = values.Length; i < cnt; i++)
+                string delimiter = string.Empty;
+                foreach (var t in values)
                 {
-                    if (i != 0) sql.Append(',');
-                    var t = values[i];
-
-                    sql.Append('(');
+                    sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, t.Item1);
+                    else sql.AppendParam(param, @this.Item1.DbType, t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, t.Item2);
+                    else sql.AppendParam(param, @this.Item2.DbType, t.Item2);
 
                     sql.Append(')');
+
+                    delimiter = ", ";
                 }
 
                 sql.Append(")");
             });
         }
 
-        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, IEnumerable<Tuple<T1, T2>> values)
+        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IEnumerable<Tuple<T1, T2>> values)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
         {
-            return columns.In(values.ToArray());
+            return @this.In(values.ToArray());
         }
 
-        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> columns, IQueryContext<Tuple<T1, T2>> subquery)
+        public static Predicate In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IQueryContext<Tuple<T1, T2>> subquery)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
         {
             return new Predicate((sql, param) =>
             {
                 sql.Append('(')
-                   .Append(columns.Item1.Expression)
+                   .Append(@this.Item1.Expression)
                    .Append(',')
-                   .Append(columns.Item2.Expression)
+                   .Append(@this.Item2.Expression)
                    .Append(") IN (");
                 subquery.GenInnerSql(sql, param);
                 sql.Append(')');
@@ -211,7 +210,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
-        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, params Tuple<T1, T2, T3>[] values)
+        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, params Tuple<T1, T2, T3>[] values)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
             where C3 : DbExpression<T3>
@@ -225,44 +224,45 @@ namespace Linq2Oracle
                 }
 
                 sql.Append('(')
-                    .Append(columns.Item1.Expression).Append(',')
-                    .Append(columns.Item2.Expression).Append(',')
-                    .Append(columns.Item3.Expression)
+                    .Append(@this.Item1.Expression).Append(',')
+                    .Append(@this.Item2.Expression).Append(',')
+                    .Append(@this.Item3.Expression)
                 .Append(") IN (");
-                for (int i = 0, cnt = values.Length; i < cnt; i++)
+
+                string delimiter = string.Empty;
+                foreach (var t in values)
                 {
-                    if (i != 0) sql.Append(',');
-                    var t = values[i];
-                    sql.Append('(');
+                    sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item1.DbType, t.Item1);
+                    else sql.AppendParam(param, @this.Item1.DbType, t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item2.DbType, t.Item2);
+                    else sql.AppendParam(param, @this.Item2.DbType, t.Item2);
 
                     sql.Append(',');
 
                     if (t.Item3 == null) sql.Append("NULL");
-                    else sql.AppendParam(param, columns.Item3.DbType, t.Item3);
+                    else sql.AppendParam(param, @this.Item3.DbType, t.Item3);
 
                     sql.Append(')');
+                    delimiter = ", ";
                 }
                 sql.Append(')');
             });
         }
 
-        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, IEnumerable<Tuple<T1, T2, T3>> values)
+        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
             where C3 : DbExpression<T3>
         {
-            return columns.In(values.ToArray());
+            return @this.In(values.ToArray());
         }
 
-        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> columns, IQueryContext<Tuple<T1, T2, T3>> subquery)
+        public static Predicate In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
             where C1 : DbExpression<T1>
             where C2 : DbExpression<T2>
             where C3 : DbExpression<T3>
@@ -270,11 +270,11 @@ namespace Linq2Oracle
             return new Predicate((sql, param) =>
             {
                 sql.Append('(')
-                   .Append(columns.Item1.Expression)
+                   .Append(@this.Item1.Expression)
                    .Append(',')
-                   .Append(columns.Item2.Expression)
+                   .Append(@this.Item2.Expression)
                    .Append(',')
-                   .Append(columns.Item3.Expression)
+                   .Append(@this.Item3.Expression)
                    .Append(") IN (");
                 subquery.GenInnerSql(sql, param);
                 sql.Append(')');
