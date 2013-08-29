@@ -9,7 +9,8 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
 
     /// <summary>
@@ -95,7 +96,7 @@ namespace Linq2Oracle {
         #region IEnumerable<GroupingContext<T,Q,S,TKey,TElement>> ¦¨­û
         public IEnumerator<GroupingContext<T, C, TKey, TElement>> GetEnumerator()
         {
-            foreach (var key in this.Select(g=>g.Key))
+            foreach (var key in this.Select(g => g.Key))
             {
                 var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
                 var newClosure = _context._closure;
@@ -134,7 +135,7 @@ namespace Linq2Oracle {
     public sealed class HavingContext<T, C> where T : DbEntity
     {
         static HavingContext() { }
-        internal static readonly HavingContext<T, C> Instance = new HavingContext<T,C>();
+        internal static readonly HavingContext<T, C> Instance = new HavingContext<T, C>();
 
         #region Count / LongCount
         public Number<int> Count()
@@ -230,14 +231,10 @@ namespace Linq2Oracle {
         decimal? Sum(Expression<Func<T, decimal?>> selector);
         #endregion
         #region Max / Min
-        TR? Max<TR>(Expression<Func<T, TR>> selector) where TR : struct;
-        TR? Max<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
-        string Max(Expression<Func<T, string>> selector);
+        TR Max<TR>(Expression<Func<T, TR>> selector);
 
-        TR? Min<TR>(Expression<Func<T, TR>> selector) where TR : struct;
-        TR? Min<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
-        string Min(Expression<Func<T, string>> selector);
-        #endregion    
+        TR Min<TR>(Expression<Func<T, TR>> selector);
+        #endregion
     }
 
     [DebuggerDisplay("¬d¸ß {TableName}")]
@@ -255,7 +252,7 @@ namespace Linq2Oracle {
         readonly Lazy<GroupingAggregate> _aggregate;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context,IEnumerable<Predicate> having)
+        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<Predicate> having)
         {
             _context = context;
             _having = having;
@@ -300,7 +297,7 @@ namespace Linq2Oracle {
             _context.GenInnerSql(sql, param, "t0.*");
             sql.Append(") t0 GROUP BY ")
                 .Append(_aggregate.Value.GrouipingKeySelector.GroupKeySql)
-                .AppendHaving(param,_having)
+                .AppendHaving(param, _having)
                 .MappingAlias(i, _context);
         }
 
