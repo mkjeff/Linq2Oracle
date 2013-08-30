@@ -66,7 +66,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public IEnumerable<IEnumerable<TElement>> Where(Func<IEnumerable<TElement>, bool> predicate)
+        public IEnumerable<GroupingContext<T, C, TKey, TElement>> Where(Func<GroupingContext<T, C, TKey, TElement>, bool> predicate)
         {
             return this.AsEnumerable().Where(predicate);
         }
