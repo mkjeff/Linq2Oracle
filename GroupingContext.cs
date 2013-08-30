@@ -59,6 +59,18 @@ namespace Linq2Oracle
                 filters: EnumerableEx.Concat(_having, predicate(HavingContext<T, C>.Instance)));
         }
         #endregion
+
+        #region Where(local filter)
+        /// <summary>
+        /// LINQ to Object Where operator
+        /// </summary>
+        /// <param name="predicate"></param>
+        /// <returns></returns>
+        public IEnumerable<IEnumerable<TElement>> Where(Func<IEnumerable<TElement>, bool> predicate)
+        {
+            return this.AsEnumerable().Where(predicate);
+        }
+        #endregion
         #region Select
         /// <summary>
         /// SQL Group Aggregation Projection
