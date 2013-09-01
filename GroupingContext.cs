@@ -24,16 +24,16 @@ namespace Linq2Oracle
     {
         readonly QueryContext<T, C, TElement> _context;
         readonly Lazy<GroupingKeySelector> _keySelector;
-        readonly IEnumerable<Predicate> _having;
+        readonly IReadOnlyList<Predicate> _having;
 
         internal GroupingContextCollection(QueryContext<T, C, TElement> context, Expression<Func<T, TKey>> keySelector)
         {
             this._context = context;
             this._keySelector = new Lazy<GroupingKeySelector>(() => GroupingKeySelector.Create(keySelector));
-            this._having = Enumerable.Empty<Predicate>();
+            this._having = EmptyList<Predicate>.Instance;
         }
 
-        GroupingContextCollection(QueryContext<T, C, TElement> context, Lazy<GroupingKeySelector> keySelector, IEnumerable<Predicate> filters)
+        GroupingContextCollection(QueryContext<T, C, TElement> context, Lazy<GroupingKeySelector> keySelector, IReadOnlyList<Predicate> filters)
         {
             this._context = context;
             this._keySelector = keySelector;
@@ -56,7 +56,7 @@ namespace Linq2Oracle
             return new GroupingContextCollection<T, C, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
-                filters: EnumerableEx.Concat(_having, predicate(HavingContext<T, C>.Instance)));
+                filters: new List<Predicate>(_having) { predicate(HavingContext<T, C>.Instance) });
         }
         #endregion
 
