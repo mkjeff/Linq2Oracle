@@ -1,9 +1,11 @@
 using System;
 using Oracle.ManagedDataAccess.Client;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     [AttributeUsage(AttributeTargets.Property, Inherited = false)]
-    public sealed class ColumnAttribute : Attribute {
+    public sealed class ColumnAttribute : Attribute
+    {
         public bool IsPrimarykey { get; set; }
         public bool IsNullable { get; set; }
         public OracleDbType DbType { get; set; }
@@ -11,8 +13,10 @@ namespace Linq2Oracle {
     }
 
     [AttributeUsage(AttributeTargets.Class, Inherited = false, AllowMultiple = true)]
-    public sealed class ConcurrencyCheckAttribute : Attribute {
-        public ConcurrencyCheckAttribute(string columnName) {
+    public sealed class ConcurrencyCheckAttribute : Attribute
+    {
+        public ConcurrencyCheckAttribute(string columnName)
+        {
             this.ColumnName = columnName;
         }
         public string ColumnName { get; private set; }

@@ -1,3 +1,4 @@
+using Linq2Oracle.Expressions;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System;
@@ -8,12 +9,11 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Linq2Oracle.Expressions;
 
 namespace Linq2Oracle
 {
-    // (sql,selection,c,param)=>;
-    using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
+    // (sql,selection,c)=>;
+    using SqlGenerator = Action<SqlContext, string, Closure>;
 
     /// <summary>
     /// 
@@ -22,12 +22,15 @@ namespace Linq2Oracle
     /// <typeparam name="C">Table Column Definition Type</typeparam>
     /// <typeparam name="TResult">Projection Result Type</typeparam>
     [DebuggerDisplay("查詢 {typeof(T).Name,nq}")]
-    public class QueryContext<C, T, TResult> : IQueryContext, IQueryContext<TResult> where T : DbEntity
+    public class QueryContext<C, T, TResult> : IQueryContext, IQueryContext<TResult>
+        where T : DbEntity
+        where C : class,new()
     {
         #region Private Member
+        internal readonly C ColumnDefine;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        protected readonly OracleDB _db;
+        internal readonly OracleDB _db;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal readonly SqlGenerator _genSql;
@@ -46,8 +49,9 @@ namespace Linq2Oracle
             {
                 var param = new OracleCommand().Parameters;
                 var sb = new StringBuilder();
-                _genSql(sb, (_closure.Distinct ? "DISTINCT " : string.Empty) + _projection.Value.SelectSql, _closure, param);
-                sb.AppendForUpdate<T, TResult>(_closure.ForUpdate);
+                var sql = new SqlContext(sb, param);
+                _genSql(sql, "SELECT " + (_closure.Distinct ? "DISTINCT " : string.Empty) + _projection.Value.SelectSql, _closure);
+                sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
                 return new
                 {
                     SQL = sb.ToString(),
@@ -57,68 +61,43 @@ namespace Linq2Oracle
         }
         #endregion
         #region Constructors
-        internal QueryContext(OracleDB db, Lazy<Projection> identityProjection)
+        internal QueryContext(OracleDB db, Lazy<Projection> projector, Closure closure, IQueryContext originalSource = null, SqlGenerator genSql = null, C columnDefine = null)
         {
             _db = db;
-            _projection = identityProjection;
-            _genSql = (sql, select, c, p) =>
-            {
-                int i = sql.Length;
-                sql.Append("SELECT ").Append(select)
-                    .Append(" FROM ").Append(Table<T>.TableName).Append(" t0")
-                    .AppendWhere(p, c.Filters)
-                    .AppendOrder(c.Orderby)
-                    .MappingAlias(i, c.Tables.First());
-            };
-            _closure = new Closure
-            {
-                Filters = Enumerable.Empty<Predicate>(),
-                Orderby = Enumerable.Empty<SortDescription>(),
-                Tables = EnumerableEx.Return((IQueryContext)this)
-            };
-            _data = GetData();
-        }
-
-        QueryContext(OracleDB db, Lazy<Projection> projector, SqlGenerator genSql)
-        {
-            _db = db;
-            _genSql = genSql;
-            _closure = new Closure
-            {
-                Filters = Enumerable.Empty<Predicate>(),
-                Orderby = Enumerable.Empty<SortDescription>(),
-                Tables = EnumerableEx.Return((IQueryContext)this)
-            };
             _projection = projector;
-            _data = GetData();
-        }
-
-        internal QueryContext(OracleDB db, Lazy<Projection> projector, SqlGenerator genSql, Closure closure)
-        {
-            _db = db;
-            _genSql = genSql;
             _closure = closure;
-            _projection = projector;
-            _data = GetData();
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        IEnumerable<TResult> GetData()
-        {
-            return EnumerableEx.Using(() => _db.CreateCommand(), cmd =>
+            _genSql = genSql ?? ((sql, select, c) =>
             {
-                var sql = new StringBuilder(128);
+                sql.Append(select).MappingAlias(this)
+                    .Append(" FROM ").Append(TableName).Append(' ').Append(sql.GetAlias(this))
+                    .AppendWhere(c.Filters)
+                    .AppendOrder(c.Orderby);
+            });
+
+            OriginalSource = originalSource ?? this;
+            ColumnDefine = columnDefine ?? ColumnExpressionBuilder<T, C>.Create(this);
+            _data = EnumerableEx.Using(() => _db.CreateCommand(), cmd =>
+            {
+                var sql = new SqlContext(new StringBuilder(128), cmd.Parameters);
                 string select = _projection.Value.SelectSql;
-                if (_closure.Distinct)
+                if (_projection.Value.IsProjection && _closure.Distinct)
                     select = "DISTINCT " + select;
-                _genSql(sql, select, _closure, cmd.Parameters);
+                _genSql(sql, "SELECT " + select, _closure);
                 sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
                 cmd.CommandText = sql.ToString();
-                return EnumerableEx.Using(() => _db.ExecuteReader(cmd), reader =>
-                     typeof(T) == typeof(TResult) ? (IEnumerable<TResult>)ReadIdentityEntities(reader) :
-                     _projection.Value.IsProjection ? ReadProjectionResult(reader, (Func<OracleDataReader, TResult>)_projection.Value.Projector) :
-                     ReadConvertedEntities(reader, (Func<T, TResult>)_projection.Value.Projector));
+                return EnumerableEx.Using(() => _db.ExecuteReader(cmd), GetResult);
             });
+        }
+
+        IEnumerable<TResult> GetResult(OracleDataReader reader)
+        {
+            if (typeof(T) == typeof(TResult))
+                return (IEnumerable<TResult>)ReadIdentityEntities(reader);
+
+            if (_projection.Value.IsProjection)
+                return ReadProjectionResult(reader, (Func<OracleDataReader, TResult>)_projection.Value.Projector);
+
+            return ReadConvertedEntities(reader, (Func<T, TResult>)_projection.Value.Projector);
         }
 
         static IEnumerable<T> ReadIdentityEntities(OracleDataReader reader)
@@ -144,7 +123,7 @@ namespace Linq2Oracle
         {
             return this.AsEnumerable().Single();
         }
-        public TResult Single(Func<C, Predicate> predicate)
+        public TResult Single(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).Single();
         }
@@ -152,7 +131,7 @@ namespace Linq2Oracle
         {
             return this.AsEnumerable().SingleOrDefault();
         }
-        public TResult SingleOrDefault(Func<C, Predicate> predicate)
+        public TResult SingleOrDefault(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).SingleOrDefault();
         }
@@ -162,7 +141,7 @@ namespace Linq2Oracle
         {
             return this.Take(1).AsEnumerable().First();
         }
-        public TResult First(Func<C, Predicate> predicate)
+        public TResult First(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).Take(1).First();
         }
@@ -171,39 +150,37 @@ namespace Linq2Oracle
         {
             return this.Take(1).AsEnumerable().FirstOrDefault();
         }
-        public TResult FirstOrDefault(Func<C, Predicate> predicate)
+        public TResult FirstOrDefault(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).Take(1).FirstOrDefault();
         }
         #endregion
-        #region Skip / Take
+        #region Skip / Take / TakeByPage / TakeBySum
         public QueryContext<C, T, TResult> Skip(int count)
         {
             if (count <= 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
-            return new QueryContext<C, T, TResult>(
-                _db,
-                _projection,
-                (sql, select, c, p) =>
+            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
                 {
-                    // SELECT [select] FROM (SELECT a.* ,ROWNUM AS rn FROM (sql) a ) t0 WHERE t0.rn > [count] [AND WHERE filter] [ORDER BY]
-                    int i = sql.Length;
-                    sql.Append("SELECT ").Append(select).Append(" FROM (SELECT a.* ,ROWNUM AS rn FROM (");
-                    _genSql(sql, "t0.*", _closure, p);
-                    sql.Append(")a )t0 WHERE t0.rn > :").Append(p.Add(p.Count.ToString(), count).ParameterName);
+                    // SELECT [select] 
+                    // FROM (SELECT a.*, ROWNUM AS rn 
+                    //       FROM (sql) a 
+                    //       ) t0 
+                    // WHERE t0.rn > [count] 
+                    // [AND WHERE ..] 
+                    // [ORDER BY]
+                    sql.Append(select).Append(" FROM (SELECT a.* ,ROWNUM AS rn FROM (");
+                    _genSql(sql, "SELECT t0.*", _closure);
+                    sql.Append(")a )t0 WHERE t0.rn > :").AppendParam(count);
 
                     if (c.Filters.Any())
                         foreach (var filter in c.Filters)
-                        {
-                            sql.Append(" AND ");
-                            filter.Build(sql, p);
-                        }
-                    sql.AppendOrder(c.Orderby).MappingAlias(i, c.Tables.First());
-                },
-                newC);
+                            sql.Append(" AND ").Append(filter);
+                    sql.AppendOrder(c.Orderby);
+                }, ColumnDefine);
         }
 
         public QueryContext<C, T, TResult> Take(int count)
@@ -211,143 +188,216 @@ namespace Linq2Oracle
             if (count < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
-            return new QueryContext<C, T, TResult>(
-                _db,
-                _projection,
-                (sql, select, c, p) =>
+            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
                 {
-                    // SELECT [select]                FROM (sql) t0 WHERE ROWNUM <= [count]
-                    // SELECT [select] FROM (SELECT * FROM (sql) t0 WHERE ROWNUM <= [count])t0 [WHERE .. ORDER BY ..])
-                    int i = sql.Length;
-                    sql.Append("SELECT ").Append(select).Append(" FROM (");
-                    _genSql(sql, "t0.*", _closure, p);
-                    sql.Append(") t0 WHERE ROWNUM <= :").Append(p.Add(p.Count.ToString(), count).ParameterName);
-
                     if (c.Filters.Any() || c.Orderby.Any())
-                        sql.Insert(i + 7 + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
-
-                    sql.MappingAlias(i, c.Tables.First());
-                },
-                newC);
+                    {
+                        // SELECT [select] 
+                        // FROM (SELECT * 
+                        //       FROM (sql) t0 
+                        //       WHERE ROWNUM <= [count]
+                        //       ) t0
+                        // WHERE .. 
+                        // ORDER BY ..
+                        sql.Append(select).Append(" FROM (SELECT * FROM (");
+                        _genSql(sql, "SELECT t0.*", _closure);
+                        sql.Append(") t0 WHERE ROWNUM <= :").AppendParam(count)
+                            .Append(")t0")
+                            .AppendWhere(c.Filters)
+                            .AppendOrder(c.Orderby);
+                    }
+                    else
+                    {
+                        // SELECT [select] 
+                        // FROM (sql) t0 
+                        // WHERE ROWNUM <= [count]
+                        sql.Append(select).Append(" FROM (");
+                        _genSql(sql, "SELECT t0.*", _closure);
+                        sql.Append(") t0 WHERE ROWNUM <= :").AppendParam(count);
+                    }
+                    //sql.MappingAlias(i, c.Tables.First());
+                }, ColumnDefine);
         }
-        #endregion
-        #region TakeBySum
+
+        public QueryContext<C, T, TResult> TakeByPage(int pageNo, int pageSize)
+        {
+            int skip = (pageNo - 1) * pageSize;
+            var newC = _closure;
+            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            {
+                if (c.Filters.Any() || c.Orderby.Any())
+                {
+                    // [select]
+                    // FROM (SELECT * 
+                    //       FROM (SELECT a.* , ROWNUM AS rn 
+                    //             FROM (sql) a 
+                    //             ) t0 
+                    //       WHERE t0.rn > [skip] AND ROWNUM <= [pageSize]
+                    //       ) t0 
+                    // WHERE ..
+                    // ORDER BY ..
+                    sql.Append(select).Append(" FROM (SELECT * FROM (SELECT a.* , ROWNUM AS rn FROM (");
+                    _genSql(sql, "SELECT t0.*", _closure);
+                    sql.Append(") a )t0 WHERE t0.rn > :").AppendParam(skip)
+                        .Append(" AND ROWNUM <= :").Append(pageSize)
+                        .Append(") t0")
+                        .AppendWhere(c.Filters)
+                        .AppendOrder(c.Orderby);
+                }
+                else
+                {
+                    // [select] 
+                    // FROM (SELECT a.* , ROWNUM AS rn 
+                    //       FROM (sql) a 
+                    //      ) t0 
+                    // WHERE t0.rn > [skip] AND ROWNUM <= [pageSize]
+                    sql.Append(select)
+                        .Append(" FROM (SELECT a.* ,ROWNUM AS rn FROM (");
+
+                    _genSql(sql, "SELECT t0.*", _closure);
+
+                    sql.Append(") a ) t0 WHERE t0.rn > :").AppendParam(skip)
+                        .Append(" AND ROWNUM <= :").Append(pageSize);
+                }
+            }, ColumnDefine);
+        }
+
         public QueryContext<C, T, TResult> TakeBySum<NUM>(Func<C, Number<NUM>> sumBy, Func<C, IDbExpression> partitionBy, long sum) where NUM : struct
         {
             if (sum < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
-            return new QueryContext<C, T, TResult>(
-                _db,
-                _projection,
-                (sql, select, c, p) =>
+            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            {
+                if (c.Filters.Any() || c.Orderby.Any())
                 {
-                    // SELECT [select]                FROM (sql) t0 WHERE ROWNUM <= [count]
-                    // SELECT [select] FROM (SELECT * FROM (sql) t0 WHERE ROWNUM <= [count])t0 [WHERE .. ORDER BY ..])
-                    int i = sql.Length;
-                    sql.Append("SELECT ").Append(select).Append(" FROM (");
+                    // [select] 
+                    // FROM (SELECT * 
+                    //       FROM (sql) t0 
+                    //       WHERE t0.accSum <= [sum]
+                    //       )t0 
+                    // WHERE .. 
+                    // ORDER BY ..
+                    sql.Append(select)
+                        .Append(" FROM (SELECT t0.*, SUM(")
+                            .Append(sumBy(ColumnDefine))
+                            .Append(") OVER(PARTITION BY ")
+                            .Append(partitionBy(ColumnDefine)).Append(' ')
+                            .AppendOrder(_closure.Orderby)
+                            .Append(" ROWS UNBOUNDED PRECEDING) AS accSum").ToString();
 
-                    var tmpSelect = new StringBuilder()
-                        .Append("t0.*, SUM(")
-                            .Append(sumBy(EntityTable<T, C>.ColumnsDefine), p)
+                    _genSql(sql, string.Empty, _closure);
+
+                    sql.Append(") t0 WHERE t0.accSum <= :").AppendParam(sum)
+                        .Append(") t0")
+                        .AppendWhere(c.Filters)
+                        .AppendOrder(c.Orderby);
+                }
+                else
+                {
+                    // [select]     
+                    // FROM (sql) t0 
+                    // WHERE t0.accSum <= [sum]
+                    sql.Append(select)
+                        .Append(" FROM (SELECT t0.*, SUM(")
+                            .Append(sumBy(ColumnDefine))
                         .Append(") OVER(PARTITION BY ")
-                            .Append(partitionBy(EntityTable<T, C>.ColumnsDefine)).Append(' ')
+                            .Append(partitionBy(ColumnDefine)).Append(' ')
                         .AppendOrder(_closure.Orderby)
-                        .Append(" ROWS UNBOUNDED PRECEDING) AS accSum").ToString();
+                        .Append(" ROWS UNBOUNDED PRECEDING) AS accSum");
 
-                    _genSql(sql, tmpSelect, _closure, p);
+                    _genSql(sql, string.Empty, _closure);
 
-                    sql.Append(") t0 WHERE t0.accSum <= :").Append(p.Add(p.Count.ToString(), sum).ParameterName);
-
-                    if (c.Filters.Any() || c.Orderby.Any())
-                        sql.Insert(i + 7 + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
-
-                    sql.MappingAlias(i, c.Tables.First());
-                },
-                newC);
-        }
-        #endregion
-        #region TakePage
-        public QueryContext<C, T, TResult> TakeByPage(int pageNo, int pageSize)
-        {
-            int skip = (pageNo - 1) * pageSize;
-            var newC = _closure;
-            newC.Filters = Enumerable.Empty<Predicate>();
-            newC.Orderby = Enumerable.Empty<SortDescription>();
-            return new QueryContext<C, T, TResult>(
-                _db,
-                _projection,
-                (sql, select, c, p) =>
-                {
-                    // SELECT [select]                FROM (SELECT a.* , ROWNUM AS rn FROM (sql)a )t0 WHERE t0.rn > [skip] AND ROWNUM <= [pageSize]
-                    // SELECT [select] FROM (SELECT * FROM (SELECT a.* , ROWNUM AS rn FROM (sql)a )t0 WHERE t0.rn > [skip] AND ROWNUM <= [pageSize])t0 [WHERE .. ORDER BY ..]
-                    sql.Append("SELECT ");
-                    int i = sql.Length;
-
-                    sql.Append(select).Append(" FROM (SELECT a.* ,ROWNUM AS rn FROM (");
-
-                    _genSql(sql, "t0.*", _closure, p);
-
-                    sql.Append(")a )t0 WHERE t0.rn > :").Append(p.Add(p.Count.ToString(), skip).ParameterName)
-                        .Append(" AND ROWNUM <= :").Append(p.Add(p.Count.ToString(), pageSize).ParameterName);
-
-                    if (c.Filters.Any() || c.Orderby.Any())
-                        sql.Insert(i + select.Length, " FROM (SELECT *").Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby);
-
-                    sql.MappingAlias(i, c.Tables.First());
-                },
-                newC);
+                    sql.Append(") t0 WHERE t0.accSum <= :").AppendParam(sum);
+                }
+            }, ColumnDefine);
         }
         #endregion
         #region OrderBy(Descending) / ThenBy(Descending)
-        //public QueryContext<T, C, TResult> OrderBy(Func<C, IEnumerable<ColumnSortDescription>> keySelector)
-        //{
-        //    var newC = _closure;
-        //    newC.Orderby = EnumerableEx.Concat(
-        //        _closure.Orderby,
-        //        from order in keySelector(EntityTable<T, C>.ColumnsDefine)
-        //        where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-        //        select new SortDescription("t0." + order.ColumnName, order.Descending));
-        //    return new QueryContext<T, C, TResult>(_db, _projection, _genSql, newC);
-        //}
+        /// <summary>
+        /// SQL ORDER BY
+        /// </summary>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
+        public QueryContext<C, T, TResult> OrderBy(Func<C, IEnumerable<ColumnSortDescription>> keySelector)
+        {
+            var newList = _closure.Orderby.ToList();
+            newList.AddRange(from order in keySelector(ColumnDefine)
+                             where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
+                             select new SortDescription(new DbExpression(sql => sql.Append(sql.GetAlias(this)).Append(".").Append(order.ColumnName)), order.Descending));
+
+            var newC = _closure;
+            newC.Orderby = newList;
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
+        }
+
+        /// <summary>
+        /// SQL ORDER BY
+        /// </summary>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> OrderBy(Func<C, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine));
+            return _OrderBy(keySelector(ColumnDefine));
         }
+
+        /// <summary>
+        /// SQL ORDER BY DESC
+        /// </summary>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> OrderByDescending(Func<C, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine), true);
+            return _OrderBy(keySelector(ColumnDefine), true);
         }
 
+        /// <summary>
+        /// SQL ORDER BY
+        /// </summary>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> ThenBy(Func<C, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine));
-        }
-        public QueryContext<C, T, TResult> ThenByDescending(Func<C, IDbExpression> keySelector)
-        {
-            return OrderBy(keySelector(EntityTable<T, C>.ColumnsDefine), true);
+            return _OrderBy(keySelector(ColumnDefine));
         }
 
-        QueryContext<C, T, TResult> OrderBy(IDbExpression expr, bool desc = false)
+        /// <summary>
+        /// SQL ORDER BY DESC
+        /// </summary>
+        /// <param name="keySelector"></param>
+        /// <returns></returns>
+        public QueryContext<C, T, TResult> ThenByDescending(Func<C, IDbExpression> keySelector)
+        {
+            return _OrderBy(keySelector(ColumnDefine), true);
+        }
+
+        QueryContext<C, T, TResult> _OrderBy(IDbExpression expr, bool desc = false)
         {
             var newC = _closure;
-            newC.Orderby = EnumerableEx.Concat(_closure.Orderby, new SortDescription(expr, desc));
-            return new QueryContext<C, T, TResult>(_db, _projection, _genSql, newC);
+            newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
         #region Where
-        public QueryContext<C, T, TResult> Where(Func<C, Predicate> predicate)
+        /// <summary>
+        /// SQL WHERE
+        /// </summary>
+        /// <param name="predicate"></param>
+        /// <returns></returns>
+        public QueryContext<C, T, TResult> Where(Func<C, Boolean> predicate)
         {
-            var filter = predicate(EntityTable<T, C>.ColumnsDefine);
+            var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)
                 return this;
             var newC = _closure;
-            newC.Filters = EnumerableEx.Concat(_closure.Filters, filter);
-            return new QueryContext<C, T, TResult>(_db, _projection, _genSql, newC);
+            newC.Filters = new List<Boolean>(_closure.Filters) { filter };
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
         #region Select
@@ -356,37 +406,43 @@ namespace Linq2Oracle
             return this;
         }
 
+        /// <summary>
+        /// SQL Projection
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <param name="selector"></param>
+        /// <param name="file"></param>
+        /// <param name="line"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
-            return new QueryContext<C, T, TR>(_db, new Lazy<Projection>(() => Projection.Create(selector, file, line)), _genSql, _closure);
+            return new QueryContext<C, T, TR>(_db, new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
         #region SelectMany
-        public SelectManyContext<C, T, TResult, _> SelectMany<C2, T2, TResult2, _>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<C, C2, _> resultSelector) where T2 : DbEntity
+        public SelectManyContext<C, T, TResult, _> SelectMany<C2, T2, TResult2, _>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<C, C2, _> resultSelector)
+            where T2 : DbEntity
+            where C2 : class,new()
         {
-            var innerContext = collectionSelector(EntityTable<T, C>.ColumnsDefine);
+            var innerContext = collectionSelector(ColumnDefine);
 
             var newC = _closure;
-            newC.Tables = EnumerableEx.Concat(_closure.Tables, innerContext);
+            newC.Tables = new List<IQueryContext>(_closure.Tables) { innerContext };
 
             return new SelectManyContext<C, T, TResult, _>(
+                originalSource: OriginalSource,
                 db: _db,
-                transparentId: resultSelector(EntityTable<T, C>.ColumnsDefine, EntityTable<T2, C2>.ColumnsDefine),
+                transparentId: resultSelector(ColumnDefine, innerContext.ColumnDefine),
                 projector: _projection,
-                genSql: (sql, select, c, p) =>
+                genSql: (sql, select, c) =>
                 {
-                    int index = sql.Length;
-                    sql.Append("SELECT ").Append(select).Append(" FROM ").Append(Table<T>.TableName).Append(" t0");
-                    int i = 0;
-                    foreach (var table in c.Tables.Skip(1))
-                    {
-                        sql.Append(",(");
-                        table.GenInnerSql(sql, p, "t0.*");
-                        sql.Append(")t").Append(++i);
-                    }
-                    sql.AppendWhere(p, c.Filters).AppendOrder(c.Orderby).MappingAlias(index, c.Tables);
+                    sql.Append(select).MappingAlias(this).Append(" FROM ").Append(TableName).Append(' ').Append(sql.GetAlias(this));
+                    foreach (var table in c.Tables)
+                        sql.Append(", (").Append("SELECT *", table).Append(") ").Append(sql.GetAlias(table));
+                    sql.AppendWhere(c.Filters).AppendOrder(c.Orderby);
                 },
-                closure: newC);
+                closure: newC,
+                columnDefine: ColumnDefine);
         }
         #endregion
         #region Distinct
@@ -394,7 +450,7 @@ namespace Linq2Oracle
         {
             var newC = _closure;
             newC.Distinct = true;
-            return new QueryContext<C, T, TResult>(_db, _projection, _genSql, newC);
+            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
         #region GroupBy
@@ -408,9 +464,9 @@ namespace Linq2Oracle
         public GroupingContextCollection<C, T, TKey, TResult> GroupBy<TKey>(Expression<Func<T, TKey>> keySelector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             var newC = _closure;
-            newC.Orderby = Enumerable.Empty<SortDescription>();
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             return new GroupingContextCollection<C, T, TKey, TResult>(
-                new QueryContext<C, T, TResult>(_db, _projection, _genSql, newC),
+                new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine),
                 keySelector);
         }
 
@@ -430,70 +486,137 @@ namespace Linq2Oracle
         }
         #endregion
         #region Intersect / Except / Union /Contact
-        QueryContext<C, T, TResult> SetOp(QueryContext<C, T, TResult> other, string op)
+        QueryContext<C, T, TResult> _SetOperator(QueryContext<C, T, TResult> other, string op)
         {
-            var thisC = _closure; thisC.Orderby = Enumerable.Empty<SortDescription>();
-            var otherC = other._closure; otherC.Orderby = Enumerable.Empty<SortDescription>();
+            var thisC = _closure; thisC.Orderby = EmptyList<SortDescription>.Instance;
+            var otherC = other._closure; otherC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(
-                _db,
-                _projection,
-                (sql, s, c, p) =>
+                db: _db,
+                projector: _projection,
+                closure: new Closure
                 {
-                    int i = sql.Length;
-                    sql.Append("SELECT ").Append(s).Append(" FROM (");
-                    this._genSql(sql, "t0.*", thisC, p);
+                    Filters = EmptyList<Boolean>.Instance,
+                    Orderby = EmptyList<SortDescription>.Instance,
+                    Tables = EmptyList<IQueryContext>.Instance,
+                },
+                originalSource: OriginalSource,
+                genSql: (sql, select, c) =>
+                {
+                    sql.Append(select).Append(" FROM (");
+                    this._genSql(sql, "SELECT t0.*", thisC);
                     sql.Append(op);
-                    other._genSql(sql, "t0.*", otherC, p);
-                    sql.Append(") t0").AppendWhere(p, c.Filters).AppendOrder(c.Orderby).MappingAlias(i, c.Tables.First());
-                });
+                    other._genSql(sql, "SELECT t0.*", otherC);
+                    sql.Append(") t0")
+                        .AppendWhere(c.Filters)
+                        .AppendOrder(c.Orderby);
+                },
+                columnDefine: ColumnDefine);
         }
 
+        /// <summary>
+        /// SQL INTERSECT
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> Intersect(QueryContext<C, T, TResult> other)
         {
-            return SetOp(other, " INTERSECT ");
+            return _SetOperator(other, " INTERSECT ");
         }
+
+        /// <summary>
+        /// SQL MINUS
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> Except(QueryContext<C, T, TResult> other)
         {
-            return SetOp(other, " MINUS ");
+            return _SetOperator(other, " MINUS ");
         }
+
+        /// <summary>
+        /// SQL UNION
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> Union(QueryContext<C, T, TResult> other)
         {
-            return SetOp(other, " UNION ");
+            return _SetOperator(other, " UNION ");
         }
+
+        /// <summary>
+        /// SQL UNION ALL
+        /// </summary>
+        /// <param name="other"></param>
+        /// <returns></returns>
         public QueryContext<C, T, TResult> Concat(QueryContext<C, T, TResult> other)
         {
-            return SetOp(other, " UNION ALL ");
+            return _SetOperator(other, " UNION ALL ");
         }
         #endregion
         #region Max / Min / Sum / Average
         #region Max / Min
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         string Max(Func<C, Linq2Oracle.Expressions.String> selector)
         {
-            return (string)_AggregateFunction(new DbExpression().Init((sql, param) =>
-                sql.Append("MAX(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')')));
-        }
-        public string Min(Func<C, Linq2Oracle.Expressions.String> selector)
-        {
-            return (string)_AggregateFunction(new DbExpression().Init((sql, param) =>
-                sql.Append("MIN(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')')));
+            return (string)_AggregateFunction(sql =>
+                sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
         }
 
+        /// <summary>
+        /// SQL MIN Function
+        /// </summary>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public string Min(Func<C, Linq2Oracle.Expressions.String> selector)
+        {
+            return (string)_AggregateFunction(sql =>
+                sql.Append("MIN(").Append(selector(ColumnDefine)).Append(')'));
+        }
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         TR? Max<TR>(Func<C, IDbExpression<TR>> selector) where TR : struct
         {
             return _MaxMin<TR>("MAX", selector);
         }
 
+        /// <summary>
+        /// SQL MIN Function
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public TR? Min<TR>(Func<C, IDbExpression<TR>> selector) where TR : struct
+        {
+            return _MaxMin<TR>("MIN", selector);
+        }
+
+        /// <summary>
+        /// SQL MIN Function
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         public TR? Max<TR>(Func<C, INullable<TR>> selector)
             where TR : struct
         {
             return _MaxMin<TR>("MAX", selector);
         }
 
-        public TR? Min<TR>(Func<C, IDbExpression<TR>> selector) where TR : struct
-        {
-            return _MaxMin<TR>("MIN", selector);
-        }
-
+        /// <summary>
+        /// SQL MIN Function
+        /// </summary>
+        /// <typeparam name="TR"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         public TR? Min<TR>(Func<C, INullable<TR>> selector) where TR : struct
         {
             return _MaxMin<TR>("MIN", selector);
@@ -501,8 +624,8 @@ namespace Linq2Oracle
 
         TR? _MaxMin<TR>(string function, Func<C, IDbExpression> selector) where TR : struct
         {
-            var value = _AggregateFunction(new DbExpression().Init((sql,param)=>
-                sql.Append(function).Append('(').Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')')));
+            var value = _AggregateFunction(sql =>
+                sql.Append(function).Append('(').Append(selector(ColumnDefine)).Append(')'));
             var retType = typeof(TR);
             if (retType.IsEnum)
             {
@@ -523,124 +646,200 @@ namespace Linq2Oracle
         }
         #endregion
         #region Sum
+        /// <summary>
+        /// SQL SUM Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         public decimal? Sum<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
         {
-            return (decimal?)_AggregateFunction(new DbExpression().Init((sql, param) =>
-                sql.Append("SUM(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')')));
+            return (decimal?)_AggregateFunction(sql =>
+                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
         }
 
-        public decimal? Sum<TNumber>(Func<C,INullable<TNumber>> selector) where TNumber : struct
+        /// <summary>
+        /// SQL SUM Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public decimal? Sum<TNumber>(Func<C, INullable<TNumber>> selector) where TNumber : struct
         {
-            return (decimal?)_AggregateFunction(new DbExpression().Init((sql, param) =>
-                sql.Append("SUM(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')')));
+            return (decimal?)_AggregateFunction(sql =>
+                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
         }
         #endregion
         #region Average
+        /// <summary>
+        /// SQL AVG Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         public decimal? Average<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
         {
-            return (decimal?)_AggregateFunction(new DbExpression().Init((sql,param)=>
-                sql.Append("ROUND(AVG(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append("),25)")));
+            return (decimal?)_AggregateFunction(sql =>
+                sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)"));
         }
 
+        /// <summary>
+        /// SQL AVG Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
         public decimal? Average<TNumber>(Func<C, INullable<TNumber>> selector) where TNumber : struct
         {
-            return (decimal?)_AggregateFunction(new DbExpression().Init((sql, param) =>
-                sql.Append("ROUND(AVG(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append("),25)")));
+            return (decimal?)_AggregateFunction(sql =>
+                sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)"));
         }
         #endregion
 
-        object _AggregateFunction(IDbExpression expr)
+        object _AggregateFunction(Action<SqlContext> exprGen)
         {
             var cc = _closure;
-            cc.Orderby = Enumerable.Empty<SortDescription>();
+            cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = _db.CreateCommand())
             {
-                var sql = new StringBuilder();
-                _genSql(sql, new StringBuilder().Append(expr, cmd.Parameters).ToString(), cc, cmd.Parameters);
+                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
+                sql.Append("SELECT ");
+                exprGen(sql);// SQL Function
+                _genSql(sql, string.Empty, cc);
                 cmd.CommandText = sql.ToString();
                 var result = _db.ExecuteScalar(cmd);
-                return result == DBNull.Value ? null : result;           
+                return result == DBNull.Value ? null : result;
             }
         }
         #endregion
-        #region Count
+        #region Count / LongCount
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        public int Count()
+        decimal _Count()
         {
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             var selection = _projection.Value.SelectSql;
             using (var cmd = _db.CreateCommand())
             {
-                var sql = new StringBuilder();
+                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
                 if (_closure.Distinct)
                 {
                     if (selection.IndexOf(',') == -1)
-                        _genSql(sql, "COUNT(DISTINCT " + selection + ")", cc, cmd.Parameters);
+                    {
+                        // select single column
+                        _genSql(sql, "SELECT COUNT(DISTINCT " + selection + ")", cc);
+                    }
                     else
                     {
                         sql.Append("SELECT COUNT(*) FROM (");
-                        _genSql(sql, "DISTINCT " + selection, cc, cmd.Parameters);
+                        _genSql(sql, "SELECT DISTINCT " + selection, cc);
                         sql.Append(")");
                     }
                 }
                 else
-                    _genSql(sql, "COUNT(*)", cc, cmd.Parameters);
+                {
+                    _genSql(sql, "SELECT COUNT(*)", cc);
+                }
                 cmd.CommandText = sql.ToString();
-                return (int)(decimal)_db.ExecuteScalar(cmd);
+                return (decimal)_db.ExecuteScalar(cmd);
             }
         }
-        public int Count(Func<C, Predicate> predicate)
+
+        /// <summary>
+        /// SQL COUNT as int
+        /// </summary>
+        /// <returns></returns>
+        public int Count()
+        {
+            return (int)_Count();
+        }
+
+        /// <summary>
+        /// SQL COUNT as int
+        /// </summary>
+        /// <param name="predicate"></param>
+        /// <returns></returns>
+        public int Count(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).Count();
         }
-        #endregion
-        #region Any
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        public bool Any()
-        {
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
-            using (var cmd = _db.CreateCommand())
-            {
-                var sql = new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM (");
-                _genSql(sql, "*", cc, cmd.Parameters);
-                sql.Append("))) THEN 1 ELSE 0 END value FROM DUAL");
 
-                cmd.CommandText = sql.ToString();
-                return (decimal)_db.ExecuteScalar(cmd) == 1;
-            }
+        /// <summary>
+        /// SQL COUNT as long
+        /// </summary>
+        /// <returns></returns>
+        public long LongCount()
+        {
+            return (long)_Count();
         }
-        public bool Any(Func<C, Predicate> predicate)
+
+        /// <summary>
+        /// SQL COUNT as long
+        /// </summary>
+        /// <param name="predicate"></param>
+        /// <returns></returns>
+        public long LongCount(Func<C, Boolean> predicate)
+        {
+            return this.Where(predicate).LongCount();
+        }
+        #endregion
+        #region Any / IsEmpty
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
+        public BooleanContext Any()
+        {
+            return new BooleanContext(
+                valueProvider: () =>
+                {
+                    var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
+                    using (var cmd = _db.CreateCommand())
+                    {
+                        var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM ("), cmd.Parameters);
+                        _genSql(sql, "SELECT *", cc);
+                        sql.Append("))) THEN 1 ELSE 0 END value FROM DUAL");
+
+                        cmd.CommandText = sql.ToString();
+                        return (decimal)_db.ExecuteScalar(cmd) == 1;
+                    }
+                },
+                predicate: new Boolean(sql =>
+                {
+                    sql.Append("EXISTS (");
+                    var newC = _closure;
+                    newC.Orderby = EmptyList<SortDescription>.Instance;
+                    _genSql(sql, "SELECT 1", newC);
+                    sql.Append(')');
+                }));
+        }
+
+        public BooleanContext Any(Func<C, Boolean> predicate)
         {
             return this.Where(predicate).Any();
+        }
+
+        public BooleanContext IsEmpty()
+        {
+            var any = Any();
+            return new BooleanContext(() => !any, !(Boolean)any);
         }
         #endregion
         #region All
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        public bool All(Func<C, Predicate> predicate)
+        public bool All(Func<C, Boolean> predicate)
         {
-            var filter = predicate(EntityTable<T, C>.ColumnsDefine);
+            var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "All條件有誤");
-            var cc = _closure; cc.Orderby = Enumerable.Empty<SortDescription>();
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = _db.CreateCommand())
             {
-                var sql = new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM (");
-                _genSql(sql, "*", cc, cmd.Parameters);
-                sql.Append(") a WHERE NOT (");
-                filter.Build(sql, cmd.Parameters);
-                sql.Replace(Table<T>.TableName + ".", "a.")
-                    .Append("))) THEN 1 ELSE 0 END value FROM DUAL");
+                var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM ("), cmd.Parameters);
+                _genSql(sql, "SELECT *", cc);
+                sql.Append(") a WHERE NOT (").Append(filter).Append("))) THEN 1 ELSE 0 END value FROM DUAL");
                 cmd.CommandText = sql.ToString();
                 return (decimal)_db.ExecuteScalar(cmd) == 1;
             }
         }
         #endregion
-        #region IsEmpty
-        public bool IsEmpty()
-        {
-            return !Any();
-        }
-        #endregion
+
         #region IEnumerable<TResult> 成員
         IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator()
         {
@@ -663,41 +862,30 @@ namespace Linq2Oracle
         {
             var newClosure = _closure;
             newClosure.ForUpdate = waitSec;
-            return new QueryContext<C, T, TResult>(_db, _projection, _genSql, newClosure);
+            return new QueryContext<C, T, TResult>(_db, _projection, newClosure, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
         #region IQueryContext 成員
+        public IQueryContext OriginalSource { get; private set; }
 
-        void GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
+        void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
-            var newC = _closure; newC.Orderby = Enumerable.Empty<SortDescription>();
+            selection = selection ?? _projection.Value.SelectSql;
+            var newC = _closure;
+            newC.Orderby = EmptyList<SortDescription>.Instance;
             if (newC.Distinct)
                 selection = "DISTINCT " + selection;
-            _genSql(sql, selection, newC, param);
+            _genSql(sql, selection, newC);
         }
 
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param)
+        void IQueryContext.GenBatchSql(SqlContext sql, OracleParameter refParam)
         {
-            GenInnerSql(sql, param, _projection.Value.SelectSql);
-        }
-
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
-        {
-            GenInnerSql(sql, param, selection);
-        }
-
-        void IQueryContext.GenBatchSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            var refParam = param[param.Count - 1];
             _data = EnumerableEx.Using(() => refParam, p =>
-                    EnumerableEx.Using(() => ((OracleRefCursor)p.Value).GetDataReader(), reader =>
-                        typeof(T) == typeof(TResult) ? (IEnumerable<TResult>)ReadIdentityEntities(reader) :
-                     _projection.Value.IsProjection ? ReadProjectionResult(reader, (Func<OracleDataReader, TResult>)_projection.Value.Projector) :
-                     ReadConvertedEntities(reader, (Func<T, TResult>)_projection.Value.Projector)));
+                    EnumerableEx.Using(() => ((OracleRefCursor)p.Value).GetDataReader(), GetResult));
             string select = _projection.Value.SelectSql;
-            if (_closure.Distinct)
+            if (_projection.Value.IsProjection && _closure.Distinct)
                 select = "DISTINCT " + select;
-            _genSql(sql, select, _closure, param);
+            _genSql(sql, "SELECT " + select, _closure);
             sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
         }
 
@@ -707,61 +895,108 @@ namespace Linq2Oracle
         #endregion
     }
 
-    public sealed class EntityTable<T, C> : QueryContext<C, T, T> where T : DbEntity
+    static class ColumnExpressionBuilder<T, C>
+        where T : DbEntity
+        where C : new()
     {
-        internal static readonly C ColumnsDefine;
-        static EntityTable()
+        static readonly Func<IQueryContext, C> constructor;
+
+        static ColumnExpressionBuilder()
         {
-            var type = typeof(C);
-            ColumnsDefine = (C)Activator.CreateInstance(type);
-            foreach (var prop in type.GetProperties())
-            {
-                DbColumn c;
-                if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) || !typeof(DbExpression).IsAssignableFrom(prop.PropertyType))
-                    continue;
-                var value = (IDbExpression)Activator.CreateInstance(prop.PropertyType);
-                //value.SetColumnInfo(c.TableQuotesColumnName, c);
-                prop.SetValue(ColumnsDefine, value, null);
-            }
+            var properties = from prop in typeof(C).GetProperties()
+                             where typeof(ISqlExpressionBuilder).IsAssignableFrom(prop.PropertyType)
+                             where Table<T>.DbColumnMap.ContainsKey(prop.Name)
+                             select new
+                             {
+                                 PropertyInfo = prop,
+                                 ColumnInfo = Table<T>.DbColumnMap[prop.Name]
+                             };
+
+            //var lambda = (IQueryContext query)=> 
+            //      new C {
+            //          Column1 = SqlExpressionBuilder.Init(new Column1Type(), column1.DbType, sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
+            //          Column2 = ...
+            //      };
+            var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
+            var lambda = LambdaExpression.Lambda<Func<IQueryContext, C>>(
+                body: LambdaExpression.MemberInit(
+                    newExpression: LambdaExpression.New(typeof(C)),
+                    bindings: from prop in properties
+                              let sql = LambdaExpression.Parameter(typeof(SqlContext), "sql")
+                              select (MemberBinding)Expression.Bind(
+                                    member: prop.PropertyInfo,
+                                    expression: Expression.Call(
+                                        typeof(SqlExpressionBuilder),
+                                        "Init",
+                                        new Type[] { prop.PropertyInfo.PropertyType },  
+                                        LambdaExpression.New(prop.PropertyInfo.PropertyType),   
+                                        LambdaExpression.Constant(prop.ColumnInfo.DbType),     
+                                        LambdaExpression.Lambda<Action<SqlContext>>(    
+                                            body: LambdaExpression.Call(
+                                                LambdaExpression.Call(
+                                                    LambdaExpression.Call(sql, 
+                                                        "Append", null, LambdaExpression.Call(sql, "GetAlias", null, query)),
+                                                        "Append", null, LambdaExpression.Constant('.')),       
+                                                        "Append", null, LambdaExpression.Constant(prop.ColumnInfo.QuotesColumnName)),  
+                                            parameters: sql
+                                        )
+                                    )
+                              )
+                 ),
+                 parameters: query);
+
+            constructor = lambda.Compile();
         }
+
+        static public C Create(IQueryContext query)
+        {
+            //var type = typeof(C);
+            //var ColumnsDefine = (C)Activator.CreateInstance(type);
+            //foreach (var prop in type.GetProperties())
+            //{
+            //    DbColumn c;
+            //    if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) ||
+            //        !typeof(ISqlExpressionBuilder).IsAssignableFrom(prop.PropertyType))
+            //        continue;
+
+            //    var value = (ISqlExpressionBuilder)Activator.CreateInstance(prop.PropertyType);
+            //    value.Init(c.DbType, sql => sql.Append(sql.GetAlias(query)).Append('.').Append(c.QuotesColumnName));
+            //    prop.SetValue(ColumnsDefine, value, null);
+            //}
+            //return ColumnsDefine;
+            return constructor(query);
+        }
+    }
+
+    /// <summary>
+    /// Entity LINQ Queryable Object 
+    /// </summary>
+    /// <typeparam name="T">Entity Type</typeparam>
+    /// <typeparam name="C">This type is used for representation of SQL expression clause in WHERE, ORDER BY and HAVING</typeparam>
+    public sealed class EntityTable<T, C> : QueryContext<C, T, T>
+        where T : DbEntity
+        where C : class,new()
+    {
+        static EntityTable() { }
 
         static readonly Lazy<Projection> identityProjection = new Lazy<Projection>(() => Projection.Identity<T>());
 
-        public EntityTable(OracleDB db) : base(db, identityProjection) { }
-
-        #region Delete
-        /// <summary>
-        /// 刪除多筆紀錄，用於刪除關聯紀錄
-        /// </summary>
-        /// <param name="predicate">刪除條件</param>
-        /// <returns>實際刪除筆數</returns>
-        public int Delete(Func<C, Predicate> predicate)
-        {
-            var filter = predicate(ColumnsDefine);
-            if (!filter.IsVaild)
-                return 0;
-
-            using (var cmd = _db.CreateCommand())
+        public EntityTable(OracleDB db)
+            : base(db, identityProjection, new Closure
             {
-                var sql = new StringBuilder(32);
-                sql.Append("DELETE FROM ").Append(Table<T>.TableName).Append(" WHERE ");
-                filter.Build(sql, cmd.Parameters);
-                cmd.CommandText = sql.ToString();
-                return _db.ExecuteNonQuery(cmd);
-            }
-        }
-        #endregion
+                Filters = EmptyList<Boolean>.Instance,
+                Orderby = EmptyList<SortDescription>.Instance,
+                Tables = EmptyList<IQueryContext>.Instance,
+            }) { }
     }
 
     struct Closure
     {
-        public IEnumerable<IQueryContext> Tables;
-        public IEnumerable<Predicate> Filters;
-        public IEnumerable<SortDescription> Orderby;
+        public IReadOnlyList<IQueryContext> Tables;
+        public IReadOnlyList<Boolean> Filters;
+        public IReadOnlyList<SortDescription> Orderby;
         public bool Distinct;
 
-        //public bool IncludeTotalCount;
-        //public Action<int> IncludeCount;
         /// <summary>
         /// &lt; 0:SKIP LOCKED
         /// 0: NOWAIT
@@ -781,6 +1016,9 @@ namespace Linq2Oracle
         }
     }
 
+    /// <summary>
+    /// Dynamic sorting description 
+    /// </summary>
     public struct ColumnSortDescription
     {
         public string ColumnName { get; set; }

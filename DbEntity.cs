@@ -65,5 +65,4 @@ namespace Linq2Oracle
         }
         #endregion
     }
-
 }

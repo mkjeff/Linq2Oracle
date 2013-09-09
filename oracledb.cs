@@ -5,12 +5,15 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Oracle.ManagedDataAccess.Client;
+using System.Collections.Concurrent;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     /// <summary>
     /// Database Access Class
     /// </summary>
-    public class OracleDB {
+    public class OracleDB
+    {
         readonly OracleConnection _conn;
         TextWriter _logger;
         public TextWriter Log { get { return _logger; } set { _logger = value; } }
@@ -20,7 +23,8 @@ namespace Linq2Oracle {
         /// </summary>
         /// <param name="connection">Database connection</param>
         /// <param name="logger">log writer</param>
-        public OracleDB(OracleConnection connection, TextWriter logger = null) {
+        public OracleDB(OracleConnection connection, TextWriter logger = null)
+        {
             _conn = connection;
             if (logger == TextWriter.Null)
                 logger = null;
@@ -28,8 +32,10 @@ namespace Linq2Oracle {
         }
 
         #region Private Methods
-        OracleCommand PrepareDbCommand(OracleCommand cmd) {
-            if (_conn.State != ConnectionState.Open) {
+        OracleCommand PrepareDbCommand(OracleCommand cmd)
+        {
+            if (_conn.State != ConnectionState.Open)
+            {
                 _conn.Open();
                 //_trx = _connection.BeginTransaction();
             }
@@ -78,40 +84,50 @@ namespace Linq2Oracle {
             return cmd;
         }
 
-        object CheckPkNull(string columnName, object value) {
+        object CheckPkNull(string columnName, object value)
+        {
             if (value == DBNull.Value)
                 throw new DalException(DbErrorCode.E_DB_PK_NULL, string.Format("主鍵{0}不能為NULL", columnName));
             return value;
         }
         #endregion
         #region Command Free Methods
-        public OracleCommand CreateCommand() {
+        public OracleCommand CreateCommand()
+        {
             return _conn.CreateCommand();
         }
 
-        public object ExecuteScalar(OracleCommand cmd) {
+        public object ExecuteScalar(OracleCommand cmd)
+        {
             return PrepareDbCommand(cmd).ExecuteScalar();
         }
 
-        public int ExecuteNonQuery(OracleCommand cmd) {
+        public int ExecuteNonQuery(OracleCommand cmd)
+        {
             return PrepareDbCommand(cmd).ExecuteNonQuery();
         }
 
-        public OracleDataReader ExecuteReader(OracleCommand cmd) {
+        public OracleDataReader ExecuteReader(OracleCommand cmd)
+        {
             return PrepareDbCommand(cmd).ExecuteReader();
         }
         #endregion
         #region Batch Query
-        public void BatchQuery(params IQueryContext[] querys) {
-            using (var cmd = this.CreateCommand()) {
+        public void BatchQuery(params IQueryContext[] querys)
+        {
+            using (var cmd = this.CreateCommand())
+            {
                 var sb = new StringBuilder("BEGIN\n", 512 * querys.Length);
+                var sql = new SqlContext(sb, cmd.Parameters);
                 bool valid = false;
                 foreach (var q in querys)
-                    if (q.Db == this) {
+                    if (q.Db == this)
+                    {
+                        var refParam = cmd.Parameters.Add(cmd.Parameters.Count.ToString(), OracleDbType.RefCursor, ParameterDirection.Output);
                         sb.Append("OPEN :")
-                          .Append(cmd.Parameters.Add(cmd.Parameters.Count.ToString(), OracleDbType.RefCursor, ParameterDirection.Output).ParameterName)
+                          .Append(refParam.ParameterName)
                           .Append(" FOR ");
-                        q.GenBatchSql(sb, cmd.Parameters);
+                        q.GenBatchSql(sql, refParam);
                         sb.Append(";\n");
                         valid = true;
                     }
@@ -128,9 +144,11 @@ namespace Linq2Oracle {
         /// </summary>
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="t">entity object</param>
-        public T Insert<T>(T t) where T : DbEntity {
+        public T Insert<T>(T t) where T : DbEntity
+        {
             t.OnSaving();
-            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn)) {
+            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn))
+            {
                 foreach (var c in Table<T>.DbColumns)
                     cmd.Parameters.Add(
                         cmd.Parameters.Count.ToString(),
@@ -152,17 +170,20 @@ namespace Linq2Oracle {
         /// </summary>
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">insert list</param>
-        public T[] Insert<T>(params T[] list) where T : DbEntity {
+        public T[] Insert<T>(params T[] list) where T : DbEntity
+        {
             if (list.Length == 0)
                 return list;
 
-            foreach (var t in list) {
+            foreach (var t in list)
+            {
                 t.OnSaving();
                 t.IsLoaded = true;
                 t.ChangedMap.Clear();
             }
 
-            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn)) {
+            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn))
+            {
                 cmd.ArrayBindCount = list.Length;
                 foreach (var column in Table<T>.DbColumns)
                     cmd.Parameters.Add(
@@ -182,16 +203,19 @@ namespace Linq2Oracle {
         /// </summary>
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">insert list</param>
-        public IEnumerable<T> Insert<T>(IEnumerable<T> list) where T : DbEntity {
+        public IEnumerable<T> Insert<T>(IEnumerable<T> list) where T : DbEntity
+        {
             return Insert(list.ToArray());
         }
         #endregion
         #region Delete
-        public bool Delete<T>(T t) where T : DbEntity {
+        public bool Delete<T>(T t) where T : DbEntity
+        {
             if (Table<T>.PkColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵, 必須使用另一個多載方法提供Where條件");
 
-            using (var cmd = this.CreateCommand()) {
+            using (var cmd = this.CreateCommand())
+            {
                 cmd.CommandText = Table<T>.DeleteWithPK;
                 foreach (var c in Table<T>.PkColumns)
                     cmd.Parameters.Add(
@@ -215,7 +239,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public int Delete<T>(IEnumerable<T> list) where T : DbEntity {
+        public int Delete<T>(IEnumerable<T> list) where T : DbEntity
+        {
             return Delete<T>(list.ToArray());
         }
 
@@ -225,19 +250,22 @@ namespace Linq2Oracle {
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public int Delete<T>(params T[] list) where T : DbEntity {
+        public int Delete<T>(params T[] list) where T : DbEntity
+        {
             if (Table<T>.PkColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵, 必須使用另一個多載方法提供Where條件");
 
             if (list.Length == 0)
                 return 0;
 
-            foreach (var t in list) {
+            foreach (var t in list)
+            {
                 t.IsLoaded = false;
                 t.ChangedMap.Clear();
             };
 
-            using (var cmd = this.CreateCommand()) {
+            using (var cmd = this.CreateCommand())
+            {
                 cmd.ArrayBindCount = list.Length;
                 cmd.CommandText = Table<T>.DeleteWithPK;
                 foreach (var c in Table<T>.PkColumns)
@@ -266,7 +294,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="t">entity object</param>
         /// <returns>effect row count is 1 return true,otherwise false </returns>
-        public bool Update<T>(T t) where T : DbEntity {
+        public bool Update<T>(T t) where T : DbEntity
+        {
             if (Table<T>.PkColumns.Length == 0 && Table<T>.FixedColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵且沒有樂觀同步欄位, 必須使用另一個多載方法提供Where條件");
 
@@ -275,42 +304,50 @@ namespace Linq2Oracle {
                 return true;//no column need update
 
             object value = null;//for column value
-            using (var cmd = this.CreateCommand()) {
+            using (var cmd = this.CreateCommand())
+            {
                 var sql = new StringBuilder();
-                if (t.IsLoaded) {
+                if (t.IsLoaded)
+                {
                     #region update changed only
                     sql.Append("UPDATE ").AppendLine(Table<T>.TableName)
                        .Append("SET ");
-                    for (int i = 0, cnt = t.ChangedMap.Keys.Count; i < cnt; i++) {
+                    for (int i = 0, cnt = t.ChangedMap.Keys.Count; i < cnt; i++)
+                    {
                         if (i != 0) sql.Append(',');
                         var c = Table<T>.DbColumns[t.ChangedMap.Keys[i]];
-                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, c.GetDbValue(t));
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.GetDbValue(t));
                     }
 
                     sql.AppendLine().Append("WHERE ");
                     //pk condition
-                    for (int i = 0, cnt = Table<T>.PkColumns.Length; i < cnt; i++) {
+                    for (int i = 0, cnt = Table<T>.PkColumns.Length; i < cnt; i++)
+                    {
                         if (i != 0) sql.Append(" AND ");
                         var c = Table<T>.PkColumns[i];
-                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)));
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)));
                     }
 
-                    if (Table<T>.FixedColumns.Length != 0) {
+                    if (Table<T>.FixedColumns.Length != 0)
+                    {
                         if (Table<T>.PkColumns.Length != 0)
                             sql.Append(" AND ");
                         // fixed column condition
-                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++) {
+                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                        {
                             if (i != 0) sql.Append(" AND ");
                             var c = Table<T>.FixedColumns[i];
                             sql.Append(c.QuotesColumnName);
                             if ((value = t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)) == DBNull.Value)
                                 sql.Append(" IS NULL");
                             else
-                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, value);
+                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
                         }
                     }
                     #endregion
-                } else {
+                }
+                else
+                {
                     #region full row update
                     sql.Append(Table<T>.FullUpdateSql);
                     foreach (var c in Table<T>.NonPkColumns)
@@ -329,23 +366,26 @@ namespace Linq2Oracle {
                             CheckPkNull(c.ColumnName, c.GetDbValue(t)),
                             ParameterDirection.Input);
 
-                    if (Table<T>.PkColumns.Length == 0) {
+                    if (Table<T>.PkColumns.Length == 0)
+                    {
                         //沒有主鍵才會用到樂觀同步欄位
-                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++) {
+                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                        {
                             if (i != 0) sql.Append(" AND ");
                             var c = Table<T>.FixedColumns[i];
                             sql.Append(c.QuotesColumnName);
                             if ((value = c.GetDbValue(t)) == DBNull.Value)
                                 sql.Append(" IS NULL");
                             else
-                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, value);
+                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
                         }
                     }
                     #endregion
                 }
 
                 cmd.CommandText = sql.ToString();
-                if (ExecuteNonQuery(cmd) == 1) {
+                if (ExecuteNonQuery(cmd) == 1)
+                {
                     t.IsLoaded = true;
                     t.ChangedMap.Clear();
                     return true;
@@ -360,7 +400,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">update list</param>
         /// <returns>effect row count</returns>
-        public int Update<T>(IEnumerable<T> list) where T : DbEntity {
+        public int Update<T>(IEnumerable<T> list) where T : DbEntity
+        {
             return Update<T>(list.ToArray());
         }
 
@@ -378,53 +419,63 @@ namespace Linq2Oracle {
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">update list</param>
         /// <returns>effect row count</returns>
-        public int Update<T>(params T[] list) where T : DbEntity {
+        public int Update<T>(params T[] list) where T : DbEntity
+        {
             if (Table<T>.PkColumns.Length == 0 && Table<T>.FixedColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵且沒有樂觀同步欄位, 必須使用另一個多載方法提供Where條件");
 
-            Action<T> updatedComplete = t => {
+            Action<T> updatedComplete = t =>
+            {
                 t.IsLoaded = true;
                 t.ChangedMap.Clear();
             };
-            return list.ToLookup(t => t.IsLoaded).Sum(group => {
-                if (group.Key) {
+            return list.ToLookup(t => t.IsLoaded).Sum(group =>
+            {
+                if (group.Key)
+                {
                     #region Changed only update
-                    return group.GroupBy(e => e.ChangedMap, (changedColumns, g) => {
+                    return group.GroupBy(e => e.ChangedMap, (changedColumns, g) =>
+                    {
                         int count = g.Count();
                         if (changedColumns.Count == 0) return count; // loaded ,but no change
                         if (count == 1) return Update(g.First()) ? 1 : 0; // single row update command 
 
-                        using (var cmd = this.CreateCommand()) {
+                        using (var cmd = this.CreateCommand())
+                        {
                             cmd.ArrayBindCount = count;
 
                             object value = null; // for changed value
 
                             var sql = new StringBuilder("UPDATE ").AppendLine(Table<T>.TableName)
                                 .Append("SET ");
-                            for (int i = 0, cnt = changedColumns.Keys.Count; i < cnt; i++) {
+                            for (int i = 0, cnt = changedColumns.Keys.Count; i < cnt; i++)
+                            {
                                 if (i != 0) sql.Append(',');
                                 var c = Table<T>.DbColumns[changedColumns.Keys[i]];
-                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, g.Select(t => c.GetDbValue(t)).ToArray());
+                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, g.Select(t => c.GetDbValue(t)).ToArray());
                             }
                             sql.AppendLine().Append("WHERE ");
 
-                            for (int i = 0, cnt = Table<T>.PkColumns.Length; i < cnt; i++) {
+                            for (int i = 0, cnt = Table<T>.PkColumns.Length; i < cnt; i++)
+                            {
                                 if (i != 0) sql.Append(" AND ");
                                 var c = Table<T>.PkColumns[i];
-                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size,
+                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
                                     g.Select(t => CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t))).ToArray());
                             }
 
-                            if (Table<T>.FixedColumns.Length != 0) {
+                            if (Table<T>.FixedColumns.Length != 0)
+                            {
                                 if (Table<T>.PkColumns.Length != 0)
                                     sql.Append(" AND ");
-                                for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++) {
+                                for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                                {
                                     if (i != 0) sql.Append(" AND ");
                                     var c = Table<T>.FixedColumns[i];
                                     if ((g.First().ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(g.First())) == DBNull.Value)
                                         sql.Append(c.QuotesColumnName).Append(" IS NULL");
                                     else
-                                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size,
+                                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
                                             g.Select(t => t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)).ToArray());
                                 }
                             }
@@ -438,12 +489,15 @@ namespace Linq2Oracle {
                         }
                     }, ChangedGroupComparer<T>.Instance).Sum();
                     #endregion
-                } else {
+                }
+                else
+                {
                     #region Full row update
                     int count = group.Count();
                     if (count == 1) return Update(group.First()) ? 1 : 0; // single row update command
 
-                    using (var cmd = this.CreateCommand()) {
+                    using (var cmd = this.CreateCommand())
+                    {
                         cmd.ArrayBindCount = count;
                         var sql = new StringBuilder(Table<T>.FullUpdateSql);
 
@@ -464,10 +518,12 @@ namespace Linq2Oracle {
                                 ParameterDirection.Input);
 
                         if (Table<T>.PkColumns.Length == 0)
-                            for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++) {
+                            for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                            {
                                 if (i != 0) sql.Append(" AND ");
                                 var c = Table<T>.FixedColumns[i];
-                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.Size, group.Select(t => {
+                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, group.Select(t =>
+                                {
                                     object value = c.GetDbValue(t);
                                     if (value == DBNull.Value) throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "無載入模式下的批次更新作業且沒有主鍵情況下而使用樂觀同步欄位當做更新條件時,欄位值不能為NULL");
                                     return value;
@@ -491,13 +547,15 @@ namespace Linq2Oracle {
         /// 如果變更欄位相同但是Fixed Column舊值為DBNull, 則必須視為不同群組,因為會影響WHERE條件
         /// </summary>
         /// <typeparam name="T"></typeparam>
-        sealed class ChangedGroupComparer<T> : IEqualityComparer<SortedList<int, object>> where T : DbEntity {
+        sealed class ChangedGroupComparer<T> : IEqualityComparer<SortedList<int, object>> where T : DbEntity
+        {
             static readonly HashSet<int> NullableFixedColumns = new HashSet<int>(from c in Table<T>.FixedColumns where c.IsNullable select c.ColumnIndex);
             internal static readonly ChangedGroupComparer<T> Instance = new ChangedGroupComparer<T>();
             ChangedGroupComparer() { }
 
             #region IEqualityComparer<SortedList<string,object>> 成員
-            public bool Equals(SortedList<int, object> changedX, SortedList<int, object> changedY) {
+            public bool Equals(SortedList<int, object> changedX, SortedList<int, object> changedY)
+            {
                 if (changedX == changedY)
                     return true;
 
@@ -505,8 +563,10 @@ namespace Linq2Oracle {
                     return false;
 
                 using (var Xs = changedX.GetEnumerator())
-                using (var Ys = changedY.GetEnumerator()) {
-                    while (Xs.MoveNext() && Ys.MoveNext()) {
+                using (var Ys = changedY.GetEnumerator())
+                {
+                    while (Xs.MoveNext() && Ys.MoveNext())
+                    {
                         var x = Xs.Current;
                         var y = Ys.Current;
                         if (x.Key != y.Key)
@@ -524,7 +584,8 @@ namespace Linq2Oracle {
             /// </summary>
             /// <param name="obj"></param>
             /// <returns></returns>
-            public int GetHashCode(SortedList<int, object> obj) {
+            public int GetHashCode(SortedList<int, object> obj)
+            {
                 //unchecked {
                 //    int hash = 23;
                 //    foreach (var e in obj) {
@@ -545,7 +606,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T"></typeparam>
         /// <param name="t"></param>
         /// <returns></returns>
-        public T InsertOrUpdate<T>(T t) where T : DbEntity {
+        public T InsertOrUpdate<T>(T t) where T : DbEntity
+        {
             if (Table<T>.PkColumns.Length == 0)
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "必需要有Primary Key才能執行InsertOrUpdate");
 
@@ -554,7 +616,8 @@ namespace Linq2Oracle {
 
             t.OnSaving();
 
-            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn)) {
+            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn))
+            {
                 #region Condition
                 foreach (var c in Table<T>.PkColumns)
                     cmd.Parameters.Add(
@@ -596,7 +659,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public IEnumerable<T> InsertOrUpdate<T>(IEnumerable<T> list) where T : DbEntity {
+        public IEnumerable<T> InsertOrUpdate<T>(IEnumerable<T> list) where T : DbEntity
+        {
             return InsertOrUpdate(list.ToArray());
         }
 
@@ -606,7 +670,8 @@ namespace Linq2Oracle {
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public T[] InsertOrUpdate<T>(params T[] list) where T : DbEntity {
+        public T[] InsertOrUpdate<T>(params T[] list) where T : DbEntity
+        {
             if (list.Length == 0)
                 return list;
 
@@ -619,7 +684,8 @@ namespace Linq2Oracle {
             foreach (var t in list)
                 t.OnSaving();
 
-            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn)) {
+            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn))
+            {
                 cmd.ArrayBindCount = list.Length;
                 #region Condition
                 foreach (var c in Table<T>.PkColumns)
@@ -651,7 +717,8 @@ namespace Linq2Oracle {
                 if (ExecuteNonQuery(cmd) != -1)
                     throw new DalException(DbErrorCode.E_DB_EXEC_PROCEDURE_FAIL, "InsertOrUpdate Failed");
             }
-            foreach (var t in list) {
+            foreach (var t in list)
+            {
                 t.ChangedMap.Clear();
                 t.IsLoaded = true;
             }

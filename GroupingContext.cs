@@ -1,6 +1,5 @@
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
-using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -9,9 +8,11 @@ using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
 using Linq2Oracle.Expressions;
+using System;
 
-namespace Linq2Oracle {
-    using SqlGenerator = Action<StringBuilder, string, Closure, OracleParameterCollection>;
+namespace Linq2Oracle
+{
+    using SqlGenerator = Action<SqlContext, string, Closure>;
 
     /// <summary>
     /// GroupBy查詢結果
@@ -20,20 +21,22 @@ namespace Linq2Oracle {
     /// <typeparam name="C"></typeparam>
     /// <typeparam name="TKey"></typeparam>
     /// <typeparam name="TElement"></typeparam>
-    public sealed class GroupingContextCollection<C, T, TKey, TElement> : IQueryContext<GroupingContext<C, T, TKey, TElement>> where T : DbEntity
+    public sealed class GroupingContextCollection<C, T, TKey, TElement> : IQueryContext<GroupingContext<C, T, TKey, TElement>>
+        where T : DbEntity
+        where C : class,new()
     {
         readonly QueryContext<C, T, TElement> _context;
         readonly Lazy<GroupingKeySelector> _keySelector;
-        readonly IEnumerable<Predicate> _having;
+        readonly IReadOnlyList<Boolean> _having;
 
         internal GroupingContextCollection(QueryContext<C, T, TElement> context, Expression<Func<T, TKey>> keySelector)
         {
             this._context = context;
-            this._keySelector = new Lazy<GroupingKeySelector>(() => GroupingKeySelector.Create(keySelector));
-            this._having = Enumerable.Empty<Predicate>();
+            this._keySelector = new System.Lazy<GroupingKeySelector>(() => GroupingKeySelector.Create(keySelector));
+            this._having = EmptyList<Boolean>.Instance;
         }
 
-        GroupingContextCollection(QueryContext<C, T, TElement> context, Lazy<GroupingKeySelector> keySelector, IEnumerable<Predicate> filters)
+        GroupingContextCollection(QueryContext<C, T, TElement> context, Lazy<GroupingKeySelector> keySelector, IReadOnlyList<Boolean> filters)
         {
             this._context = context;
             this._keySelector = keySelector;
@@ -51,12 +54,12 @@ namespace Linq2Oracle {
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public GroupingContextCollection<C, T, TKey, TElement> Where(Func<HavingContext<T, C>, Predicate> predicate)
+        public GroupingContextCollection<C, T, TKey, TElement> Where(Func<HavingContext<T, C>, Boolean> predicate)
         {
             return new GroupingContextCollection<C, T, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
-                filters: EnumerableEx.Concat(_having, predicate(HavingContext<T, C>.Instance)));
+                filters: new List<Boolean>(_having) { predicate(new HavingContext<T, C>(_context.ColumnDefine)) });
         }
         #endregion
         #region Select
@@ -70,23 +73,18 @@ namespace Linq2Oracle {
         /// <returns></returns>
         public IQueryContext<TResult> Select<TResult>(Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
-            return new AggregateResult<TResult>(new Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
+            return new AggregateResult<TResult>(new System.Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
         }
         #endregion
         #region IQueryContext 成員
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param)
+        void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
-            ((IQueryContext)this.Select(g => g.Key)).GenInnerSql(sql, param);
+            ((IQueryContext)this.Select(g => g.Key)).GenInnerSql(sql, selection);
         }
 
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
+        void IQueryContext.GenBatchSql(SqlContext sql, OracleParameter refParam)
         {
-            ((IQueryContext)this.Select(g => g.Key)).GenInnerSql(sql, param, selection);
-        }
-
-        void IQueryContext.GenBatchSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            ((IQueryContext)this.Select(g => g.Key)).GenBatchSql(sql, param);
+            ((IQueryContext)this.Select(g => g.Key)).GenBatchSql(sql, refParam);
         }
 
         public OracleDB Db { get { return _context.Db; } }
@@ -101,9 +99,9 @@ namespace Linq2Oracle {
                 var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
                 var newClosure = _context._closure;
                 if (keyPredicate.IsVaild)
-                    newClosure.Filters = EnumerableEx.Concat(_context._closure.Filters, keyPredicate);
+                    newClosure.Filters = new List<Boolean>(_context._closure.Filters) { keyPredicate };
 
-                yield return new GroupingContext<C, T, TKey, TElement>(key, _context.Db, _context._projection, _context._genSql, newClosure);
+                yield return new GroupingContext<C, T, TKey, TElement>(_context.OriginalSource, key, _context.Db, _context._projection, _context._genSql, newClosure, _context.ColumnDefine);
             }
         }
         #endregion
@@ -113,15 +111,22 @@ namespace Linq2Oracle {
             return this.GetEnumerator();
         }
         #endregion
+
+        public IQueryContext OriginalSource
+        {
+            get { return _context.OriginalSource; }
+        }
     }
 
     [DebuggerDisplay("{Key}")]
-    public sealed class GroupingContext<C, T, TKey, TElement> : QueryContext<C, T, TElement> where T : DbEntity
+    public sealed class GroupingContext<C, T, TKey, TElement> : QueryContext<C, T, TElement>
+        where T : DbEntity
+        where C : class,new()
     {
         public TKey Key { get; private set; }
 
-        internal GroupingContext(TKey key, OracleDB db, Lazy<Projection> projector, SqlGenerator genSql, Closure closure)
-            : base(db, projector, genSql, closure)
+        internal GroupingContext(IQueryContext originalSource, TKey key, OracleDB db, Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
+            : base(db, projector, closure, originalSource, genSql, columnDefine)
         {
             Key = key;
         }
@@ -134,64 +139,67 @@ namespace Linq2Oracle {
     /// <typeparam name="C"></typeparam>
     public sealed class HavingContext<T, C> where T : DbEntity
     {
-        static HavingContext() { }
-        internal static readonly HavingContext<T, C> Instance = new HavingContext<T,C>();
-
+        readonly C ColumnDefine;
+        internal HavingContext(C columnDefine)
+        {
+            this.ColumnDefine = columnDefine;
+        }
         #region Count / LongCount
         public Number<int> Count()
         {
-            return new Number<int>().Init((sql, param) =>
-                sql.Append("COUNT(*)"));
+            return new Number<int>().Init(OracleDbType.Int32,
+                sql => sql.Append("COUNT(*)"));
         }
 
         public Number<long> LongCount()
         {
-            return new Number<long>().Init((sql, param) =>
-                sql.Append("COUNT(*)"));
+            return new Number<long>().Init(OracleDbType.Int64,
+                sql => sql.Append("COUNT(*)"));
         }
         #endregion
         #region Average
         public Number<decimal> Average<N>(Func<C, Number<N>> selector) where N : struct
         {
-            return new Number<decimal>().Init((sql, param) =>
-                sql.Append("AVG(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')'));
+            return new Number<decimal>().Init(OracleDbType.Decimal, sql =>
+                sql.Append("AVG(").Append(selector(ColumnDefine)).Append(')'));
         }
 
-        public INullable<decimal> Average<N>(Func<C, INullable<N>> selector) where N : struct
+        public NullableNumber<decimal> Average<N>(Func<C, NullableNumber<N>> selector) where N : struct
         {
-            var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new NullableNumber<decimal>().Init((sql, param) =>
-                sql.Append("AVG(").Append(selector(EntityTable<T, C>.ColumnsDefine), param).Append(')'));
+            return new NullableNumber<decimal>().Init(OracleDbType.Decimal, sql =>
+                sql.Append("AVG(").Append(selector(ColumnDefine)).Append(')'));
         }
         #endregion
         #region Sum
         public Number<N> Sum<N>(Func<C, Number<N>> selector) where N : struct
         {
-            var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new Number<N>().Init((sql, param) =>
-                sql.Append("SUM(").Append(c, param).Append(')'));
+            return new Number<N>().Init(OracleDbType.Decimal, sql =>
+                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
         }
 
-        public INullable< N> Sum<N>(Func<C, INullable<N>> selector) where N : struct
+        public NullableNumber<N> Sum<N>(Func<C, NullableNumber<N>> selector) where N : struct
         {
-            var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new NullableNumber<N>().Init((sql, param) =>
-                sql.Append("SUM(").Append(c, param).Append(')'));
+            return new NullableNumber<N>().Init(OracleDbType.Decimal, sql =>
+                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
         }
         #endregion
         #region Max / Min
         public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : IDbExpression, new()
         {
-            var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new TColumn().Init((sql,param)=>
-                sql.Append("MAX(").Append(c, param).Append(')'));
+            var c = selector(ColumnDefine);
+            var result = new TColumn();
+            ((ISqlExpressionBuilder)result).Init(c.DbType,
+                sql => sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
+            return result;
         }
 
         public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : IDbExpression, new()
         {
-            var c = selector(EntityTable<T, C>.ColumnsDefine);
-            return new TColumn().Init((sql, param) =>
-                sql.Append("MIN(").Append(c, param).Append(')'));
+            var c = selector(ColumnDefine);
+            var result = new TColumn();
+            ((ISqlExpressionBuilder)result).Init(c.DbType, sql =>
+                sql.Append("MIN(").Append(selector(ColumnDefine)).Append(')'));
+            return result;
         }
         #endregion
     }
@@ -238,40 +246,36 @@ namespace Linq2Oracle {
         decimal? Sum(Expression<Func<T, decimal?>> selector);
         #endregion
         #region Max / Min
-        TR? Max<TR>(Expression<Func<T, TR>> selector) where TR : struct;
-        TR? Max<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
-        string Max(Expression<Func<T, string>> selector);
-
-        TR? Min<TR>(Expression<Func<T, TR>> selector) where TR : struct;
-        TR? Min<TR>(Expression<Func<T, TR?>> selector) where TR : struct;
-        string Min(Expression<Func<T, string>> selector);
-        #endregion    
+        TR Max<TR>(Expression<Func<T, TR>> selector);
+        TR Min<TR>(Expression<Func<T, TR>> selector);
+        #endregion
     }
 
     [DebuggerDisplay("查詢 {TableName}")]
     sealed class AggregateResult<T> : IQueryContext<T>
     {
+
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         IEnumerable<T> _data;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly IQueryContext _context;
 
-        readonly IEnumerable<Predicate> _having;
+        readonly IEnumerable<Boolean> _having;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly Lazy<GroupingAggregate> _aggregate;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context,IEnumerable<Predicate> having)
+        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<Boolean> having)
         {
             _context = context;
             _having = having;
             _aggregate = aggregate;
             _data = EnumerableEx.Using(() => _context.Db.CreateCommand(), cmd =>
             {
-                var sql = new StringBuilder();
-                GenSql(sql, cmd.Parameters);
+                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
+                GenSql(sql);
                 cmd.CommandText = sql.ToString();
                 return EnumerableEx.Using(() => _context.Db.ExecuteReader(cmd), reader =>
                       ReadProjectionResult(reader));
@@ -290,8 +294,8 @@ namespace Linq2Oracle {
             get
             {
                 var param = new OracleCommand().Parameters;
-                var sql = new StringBuilder();
-                GenSql(sql, param);
+                var sql = new SqlContext(new StringBuilder(), param);
+                GenSql(sql);
                 return new
                 {
                     SQL = sql.ToString(),
@@ -301,34 +305,26 @@ namespace Linq2Oracle {
         }
 
         #region IQueryContext 成員
-        void GenSql(StringBuilder sql, OracleParameterCollection param)
+        void GenSql(SqlContext sql)
         {
-            int i = sql.Length;
-            sql.Append("SELECT ").Append(_aggregate.Value.SelectionSql).Append(" FROM (");
-            _context.GenInnerSql(sql, param, "t0.*");
-            sql.Append(") t0 GROUP BY ")
-                .Append(_aggregate.Value.GrouipingKeySelector.GroupKeySql)
-                .AppendHaving(param,_having)
-                .MappingAlias(i, _context);
+            sql.Append("SELECT ").Append(_aggregate.Value.SelectionSql).Append(" FROM (")
+                .Append("SELECT " + sql.GetAlias(_context) + ".*", _context)
+                .Append(") ").Append(sql.GetAlias(_context))
+                .Append(" GROUP BY ").Append(_aggregate.Value.GrouipingKeySelector.GroupKeySql).MappingAlias(_context)
+                .AppendHaving(_having);
         }
 
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param)
+        void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
-            GenSql(sql, param);
+            GenSql(sql);
         }
 
-        void IQueryContext.GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection)
+        void IQueryContext.GenBatchSql(SqlContext sql, OracleParameter refParam)
         {
-            throw new NotSupportedException("不支援此查詢方法");
-        }
-
-        void IQueryContext.GenBatchSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            var refParam = param[param.Count - 1];
             _data = EnumerableEx.Using(() => refParam, p =>
                     EnumerableEx.Using(() => ((OracleRefCursor)p.Value).GetDataReader(), reader =>
                             ReadProjectionResult(reader)));
-            GenSql(sql, param);
+            GenSql(sql);
         }
 
         OracleDB IQueryContext.Db { get { return _context.Db; } }
@@ -347,5 +343,10 @@ namespace Linq2Oracle {
             return _data.GetEnumerator();
         }
         #endregion
+
+        public IQueryContext OriginalSource
+        {
+            get { return _context.OriginalSource; }
+        }
     }
 }

@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using Oracle.ManagedDataAccess.Client;
 using System.Text;
 
-namespace Linq2Oracle {
+namespace Linq2Oracle
+{
     public interface IQueryContext
     {
-        void GenInnerSql(StringBuilder sql, OracleParameterCollection param);
-        void GenInnerSql(StringBuilder sql, OracleParameterCollection param, string selection);
-        void GenBatchSql(StringBuilder sql, OracleParameterCollection param);
+        IQueryContext OriginalSource { get; }
+        void GenInnerSql(SqlContext sql, string selection = null);
+        void GenBatchSql(SqlContext sql, OracleParameter refParam);
         OracleDB Db { get; }
         string TableName { get; }
     }

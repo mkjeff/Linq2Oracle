@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Oracle.ManagedDataAccess.Client;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,9 +7,21 @@ using System.Threading.Tasks;
 
 namespace Linq2Oracle.Expressions
 {
+    interface ISqlExpressionBuilder
+    {
+        Action<SqlContext> Build { get; set; }
+        OracleDbType DbType { get; set; }
+    }
+
     static class SqlExpressionBuilder
     {
-        public static Predicate Equals(this IDbExpression a, IDbExpression b)
+        public static T Init<T>(this T column, OracleDbType dbType, Action<SqlContext> sqlGenerator) where T : ISqlExpressionBuilder
+        {
+            column.Build = sqlGenerator;
+            return column;
+        }
+
+        public static Boolean IsEquals(this IDbExpression a, IDbExpression b)
         {          
             if (a == null)
                 return b.IsNull();
@@ -16,10 +29,10 @@ namespace Linq2Oracle.Expressions
             if (b == null)
                 return a.IsNull();
 
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" = ").Append(b, param));
+            return new Boolean(sql => sql.Append(a).Append(" = ").Append(b));
         }
 
-        public static Predicate NotEquals(this IDbExpression a, IDbExpression b)
+        public static Boolean NotEquals(this IDbExpression a, IDbExpression b)
         {
             if (a == null)
                 return b.IsNotNull();
@@ -27,50 +40,50 @@ namespace Linq2Oracle.Expressions
             if (b == null)
                 return a.IsNotNull();
 
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" <> ").Append(b, param));
+            return new Boolean(sql => sql.Append(a).Append(" <> ").Append(b));
         }
 
-        public static Predicate IsNull(this IDbExpression a)
+        public static Boolean IsNull(this IDbExpression a)
         {
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" IS NULL"));
+            return new Boolean(sql => sql.Append(a).Append(" IS NULL"));
         }
 
-        public static Predicate IsNotNull(this IDbExpression a)
+        public static Boolean IsNotNull(this IDbExpression a)
         {
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" IS NOT NULL"));
+            return new Boolean(sql => sql.Append(a).Append(" IS NOT NULL"));
         }
 
-        public static Predicate GreatThan(this IDbExpression a, IDbExpression b)
-        {
-            if (a == null && b == null)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" > ").Append(b, param));
-        }
-
-        public static Predicate GreatThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static Boolean GreatThan(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" >= ").Append(b, param));
+            return new Boolean(sql => sql.Append(a).Append(" > ").Append(b));
         }
 
-        public static Predicate LessThan(this IDbExpression a, IDbExpression b)
+        public static Boolean GreatThanOrEquals(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" < ").Append(b, param));
+            return new Boolean(sql => sql.Append(a).Append(" >= ").Append(b));
         }
 
-        public static Predicate LessThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static Boolean LessThan(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" <= ").Append(b, param));
+            return new Boolean(sql => sql.Append(a).Append(" < ").Append(b));
         }
 
-        public static Predicate Like(this String a, string pattern)
+        public static Boolean LessThanOrEquals(this IDbExpression a, IDbExpression b)
         {
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" LIKE ").AppendParam(param, pattern));
+            if (a == null && b == null)
+                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
+            return new Boolean(sql => sql.Append(a).Append(" <= ").Append(b));
+        }
+
+        public static Boolean Like(this String a, string pattern)
+        {
+            return new Boolean(sql => sql.Append(a).Append(" LIKE ").AppendParam(pattern));
         }
 
          

@@ -6,8 +6,10 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 
-namespace Linq2Oracle {
-    sealed class Projection : ExpressionVisitor {
+namespace Linq2Oracle
+{
+    sealed class Projection : ExpressionVisitor
+    {
         static Projection() { }
         static readonly ParameterExpression _DbReader = Expression.Parameter(typeof(OracleDataReader), "reader");
 #if  LOCATIONAL_CACHE
@@ -22,7 +24,7 @@ namespace Linq2Oracle {
         {
             return new Projection(Table<T>.Info, selector);
         }
-#else 
+#else
         static readonly ExpressionCache<Projection> _Cache = new ExpressionCache<Projection>();
 
         internal static Projection Create<T, TResult>(Expression<Func<T, TResult>> selector, string file, int line) where T : DbEntity
@@ -45,7 +47,8 @@ namespace Linq2Oracle {
             this.SelectSql = fullSelection;
         }
 
-        Projection(Table.Info tableInfo, LambdaExpression selector) {
+        Projection(Table.Info tableInfo, LambdaExpression selector)
+        {
             this._valueGetters = new Dictionary<string, Expression>();
             this._selectSqlBuffer = new StringBuilder();
             this._tableInfo = tableInfo;
@@ -69,7 +72,8 @@ namespace Linq2Oracle {
             return new Projection(Table<T>.FullSelectionColumnsString, new Func<T, T>(t => t));
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m) {
+        protected override Expression VisitMemberAccess(MemberExpression m)
+        {
             if (!IsProjection)
                 return m;
 
@@ -93,7 +97,8 @@ namespace Linq2Oracle {
             return expr;
         }
 
-        protected override Expression VisitParameter(ParameterExpression p) {
+        protected override Expression VisitParameter(ParameterExpression p)
+        {
             if (IsProjection && p == _paramT)
                 IsProjection = false;
             return p;

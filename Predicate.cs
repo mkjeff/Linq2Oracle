@@ -1,101 +1,102 @@
 using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Text;
+using System.Collections.Generic;
 
 namespace Linq2Oracle
 {
-    public sealed class Predicate
+    public struct Boolean
     {
-        readonly bool localPredicate;
-        readonly Action<StringBuilder, OracleParameterCollection> _builder;
+        readonly Action<SqlContext> _builder;
 
-        internal bool IsVaild { get { return localPredicate && _builder != null; } }
+        internal bool IsVaild { get { return _builder != null; } }
 
-        internal Predicate(Action<StringBuilder, OracleParameterCollection> gen)
+        internal Boolean(Action<SqlContext> sqlBuilder)
         {
-            localPredicate = true;
-            _builder = gen;
+            _builder = sqlBuilder;
         }
 
-        internal Predicate(bool predicate)
-        {
-            localPredicate = predicate;
-            _builder = null;
-        }
-
-        internal void Build(StringBuilder sql, OracleParameterCollection parameters)
+        internal void Build(SqlContext sql)
         {
             if (_builder != null)
-                _builder(sql, parameters);
+                _builder(sql);
         }
 
-        public static implicit operator Predicate(bool boolean)
+        public Boolean When(bool localCondition)
         {
-            return new Predicate(boolean);
+            return localCondition ? this : new Boolean();
         }
 
-        public static Predicate operator |(Predicate left, Predicate right)
+        public static Boolean operator |(Boolean x, Boolean y)
         {
-            bool l = left.IsVaild, r = right.IsVaild;
+            bool l = x.IsVaild, r = y.IsVaild;
             if (!(l || r))
-                return new Predicate(false);
+                return new Boolean();
             if (l && r)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("(");
-                    left.Build(sql, param);
-                    sql.Append(" OR ");
-                    right.Build(sql, param);
-                    sql.Append(")");
-                });
+                return new Boolean(sql => sql.Append("(").Append(x).Append(" OR ").Append(y).Append(")"));
             if (l)
-                return left;
-            return right;
+                return x;
+            return y;
         }
 
-        public static Predicate operator &(Predicate left, Predicate right)
+        public static Boolean operator &(Boolean x, Boolean y)
         {
-            bool l = left.IsVaild, r = right.IsVaild;
+            bool l = x.IsVaild, r = y.IsVaild;
             if (!(l || r))
-                return new Predicate(false);
+                return new Boolean();
             if (l && r)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("(");
-                    left.Build(sql, param);
-                    sql.Append(" AND ");
-                    right.Build(sql, param);
-                    sql.Append(")");
-                });
+                return new Boolean(sql => sql.Append("(").Append(x).Append(" AND ").Append(y).Append(")"));
             if (r)
-                return right;
-            return left;
+                return y;
+            return x;
         }
 
-        public static Predicate operator !(Predicate a)
+        public static Boolean operator !(Boolean x)
         {
-            if (a.IsVaild)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("NOT (");
-                    a.Build(sql, param);
-                    sql.Append(")");
-                });
-            return new Predicate(!a.localPredicate);
+            if (x.IsVaild)
+                return new Boolean(sql => sql.Append("NOT (").Append(x).Append(")"));
+            return new Boolean();
         }
 
-        public static bool operator false(Predicate a)
+        public static bool operator false(Boolean x)
         {
             // Used by operator && (7.11.2)
             // x && y --> T.false(x) ? x : T.&(x,y)
-            return !a.localPredicate;
+            return !x.IsVaild;
         }
 
-        public static bool operator true(Predicate a)
+        public static bool operator true(Boolean x)
         {
             // Used by operator || (7.11.2)
             // x || y --> T.true(x) ? x : T.|(x,y)
             return false;
+        }
+    }
+
+    public struct BooleanContext
+    {
+        readonly Func<bool> _valueProvider;
+        readonly Boolean _predicate;
+
+        internal BooleanContext(Func<bool> valueProvider, Boolean predicate)
+        {
+            _valueProvider = valueProvider;
+            _predicate = predicate;
+        }
+
+        public static BooleanContext operator !(BooleanContext x)
+        {
+            return new BooleanContext(() => !x._valueProvider(), !x._predicate);
+        }
+
+        public static implicit operator bool(BooleanContext @this)
+        {
+            return @this._valueProvider();
+        }
+
+        public static implicit operator Boolean(BooleanContext @this)
+        {
+            return @this._predicate;
         }
     }
 }

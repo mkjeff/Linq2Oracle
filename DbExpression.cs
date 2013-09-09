@@ -7,34 +7,34 @@ using Linq2Oracle;
 
 namespace Linq2Oracle.Expressions
 {
+    using SqlGenerator = Action<SqlContext>;
+
     public interface IDbExpression
     {
-        void SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator);
-        void BuildSql(StringBuilder sql, OracleParameterCollection param);
-        object ToDbValue(object value);
-    }
-
-    sealed class DbExpression : IDbExpression
-    {
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
-        {
-            throw new NotImplementedException();
-        }
-
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        void Build(SqlContext sql);
+        OracleDbType DbType { get; }
     }
 
     public interface IDbExpression<T> : IDbExpression { }
 
-    public sealed class String : IDbExpression<string>
+    sealed class DbExpression : IDbExpression {
+        readonly SqlGenerator _generator;
+        internal DbExpression(SqlGenerator generator)
+        {
+            _generator = generator;
+        }
+        public void Build(SqlContext sql)
+        {
+            _generator(sql);
+        }
+
+        public OracleDbType DbType
+        {
+            get { throw new NotImplementedException(); }
+        }
+    }
+
+    public sealed class String : IDbExpression<string>, ISqlExpressionBuilder
     {
         #region Operators
         public static implicit operator String(string value)
@@ -42,85 +42,85 @@ namespace Linq2Oracle.Expressions
             if (value == null)
                 return null;
 
-            return new String().Init((sql, param) => sql.AppendParam(param, value));
+            return new String().Init(OracleDbType.Varchar2, sql => sql.AppendParam(value));
         }
 
-        public static Predicate operator ==(String a, String b)
+        public static Boolean operator ==(String a, String b)
         {
-            return a.Equals(b);
+            return a.IsEquals(b);
         }
 
-        public static Predicate operator !=(String a, String b)
+        public static Boolean operator !=(String a, String b)
         {
             return a.NotEquals(b);
         }
 
-        public static Predicate operator >(String a, String b)
+        public static Boolean operator >(String a, String b)
         {
             return a.GreatThan(b);
         }
 
-        public static Predicate operator >=(String a, String b)
+        public static Boolean operator >=(String a, String b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static Predicate operator <(String a, String b)
+        public static Boolean operator <(String a, String b)
         {
             return a.LessThan(b);
         }
 
-        public static Predicate operator <=(String a, String b)
+        public static Boolean operator <=(String a, String b)
         {
             return a.LessThanOrEquals(b);
         }
 
         public static String operator +(String a, String b)
         {
-            return new String().Init((sql, param) => sql.Append(a, param).Append(" || ").Append(b, param));
+            return new String().Init(OracleDbType.Varchar2, sql => sql.Append(a).Append(" || ").Append(b));
         }
         #endregion
 
         #region Helper Methods
         String SubString(int startIndex, int? length = null)
         {
-            return new String().Init((sql, param) =>
+            return new String().Init(OracleDbType.Varchar2, sql =>
             {
-                sql.Append("SUBSTR(").Append(this, param).Append(',').Append(startIndex + 1);
+                sql.Append("SUBSTR(").Append(this).Append(',').Append(startIndex + 1);
                 if (length != null)
-                    sql.Append(',').Append(length);
+                    sql.Append(',').Append(length.Value);
                 sql.Append(')');
             });
         }
 
         String UnaryFunction(string functionName)
         {
-            return new String().Init((sql, param) => sql.Append(functionName).Append('(').Append(this, param).Append(')'));
+            return new String().Init(OracleDbType.Varchar2, sql => sql.Append(functionName).Append('(').Append(this).Append(')'));
         }
         #endregion
 
         #region Methods
-        public Predicate IsNullOrEmpty()
+        public Boolean IsNullOrEmpty()
         {
             return this.IsNull();
         }
 
-        public Predicate IsNullOrWhiteSpace()
+        public Boolean IsNullOrWhiteSpace()
         {
             return this.TrimStart().IsNull();
         }
 
-        public Predicate StartsWith(string str)
+        public Boolean StartsWith(string str)
         {
             return this.Like(str + "%");
         }
 
-        public Predicate EndsWith(string str)
+        public Boolean EndsWith(string str)
         {
             return this.Like("%" + str);
         }
 
-        public Predicate Contains(string str)
+        public Boolean Contains(string str)
         {
             return this.Like("%" + str + "%");
         }
@@ -182,30 +182,24 @@ namespace Linq2Oracle.Expressions
         {
             get
             {
-                return new Number<int>().Init((sql, param) => sql.Append("LENGTH(").Append(this, param).Append(')'));
+                return new Number<int>().Init(OracleDbType.Int32, sql => sql.Append("LENGTH(").Append(this).Append(')'));
             }
         }
         #endregion
 
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
+        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
+
+        void IDbExpression.Build(SqlContext sql)
         {
-            throw new NotImplementedException();
+            ((ISqlExpressionBuilder)this).Build(sql);
         }
 
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        public OracleDbType DbType { get; set; }
     }
 
     public interface INullable<T> : IDbExpression<T> where T : struct { }
 
-    public class Nullable<TExpr, T> : INullable<T>
+    public class Nullable<TExpr, T> : INullable<T>, ISqlExpressionBuilder
         where TExpr : struct,IDbExpression<T>
         where T : struct
     {
@@ -217,32 +211,32 @@ namespace Linq2Oracle.Expressions
             return new Nullable<TExpr, T>();
         }
 
-        public static Predicate operator ==(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator ==(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
-            return a.Equals(b);
+            return a.IsEquals(b);
         }
 
-        public static Predicate operator !=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator !=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.NotEquals(b);
         }
 
-        public static Predicate operator >(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator >(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.GreatThan(b);
         }
 
-        public static Predicate operator >=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator >=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static Predicate operator <(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator <(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.LessThan(b);
         }
 
-        public static Predicate operator <=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static Boolean operator <=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.LessThanOrEquals(b);
         }
@@ -251,77 +245,59 @@ namespace Linq2Oracle.Expressions
         #region Methods
         public TExpr GetValueOrDefault(T defaultValue)
         {
-            return new TExpr().Init((sql, param) =>
-                sql.Append("NVL(").Append(this, param).Append(',').AppendParam(param, defaultValue).Append(')'));
+            var result = new TExpr();
+            ((ISqlExpressionBuilder)result).Init(result.DbType, sql =>
+                sql.Append("NVL(").Append(this).Append(',').AppendParam(defaultValue).Append(')'));
+            return result;
         }
         #endregion
 
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
+        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
+
+        void IDbExpression.Build(SqlContext sql)
         {
-            throw new NotImplementedException();
+            ((ISqlExpressionBuilder)this).Build(sql);
         }
 
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        public OracleDbType DbType { get; set; }
     }
 
-    public struct Enum<T> : IDbExpression<T> where T : struct
+    public struct Enum<T> : IDbExpression<T>, ISqlExpressionBuilder where T : struct
     {
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
+        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
+
+        void IDbExpression.Build(SqlContext tableAlias)
         {
-            throw new NotImplementedException();
+            ((ISqlExpressionBuilder)this).Build(tableAlias);
         }
 
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        public OracleDbType DbType { get; set; }
     }
 
-    public struct DateTime : IDbExpression<System.DateTime>
+    public struct DateTime : IDbExpression<System.DateTime>, ISqlExpressionBuilder
     {
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
+        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
+
+        void IDbExpression.Build(SqlContext tableAlias)
         {
-            throw new NotImplementedException();
+            ((ISqlExpressionBuilder)this).Build(tableAlias);
         }
 
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        public OracleDbType DbType { get; set; }
     }
 
-    public struct Number<T> : IDbExpression<T> where T : struct
+    public struct Number<T> : IDbExpression<T>, ISqlExpressionBuilder where T : struct
     {
         #region Operators
         public static implicit operator Number<T>(T value)
         {
-            return new Number<T>().Init((sql, param) => sql.AppendParam(param, value));
+            return new Number<T>().Init(OracleDbType.Decimal, sql => sql.AppendParam(value));
         }
 
-        [Obsolete("This is an unsafe conversion", true)]
+        [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator Number<T>(T? value)
         {
-            // C# / VS2012 bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
+            // C# / Visual Studio bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
             if (!value.HasValue)
                 return null;
             return new Number<T>();
@@ -331,15 +307,15 @@ namespace Linq2Oracle.Expressions
         {
             return new NullableNumber<T>();
         }
-        
-        public static Predicate operator ==(Number<T> a, Number<T> b)
+
+        public static Boolean operator ==(Number<T> a, Number<T> b)
         {
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" = ").Append(b, param));
+            return a.IsEquals(b);
         }
 
-        public static Predicate operator !=(Number<T> a, Number<T> b)
+        public static Boolean operator !=(Number<T> a, Number<T> b)
         {
-            return new Predicate((sql, param) => sql.Append(a, param).Append(" <> ").Append(b, param));
+            return a.NotEquals(b);
         }
 
         public static Number<T> operator +(Number<T> a, Number<T> b)
@@ -364,29 +340,23 @@ namespace Linq2Oracle.Expressions
 
         private static Number<T> BuildBinaryExpression(Number<T> a, Number<T> b, char binaryOperator)
         {
-            return new Number<T>().Init((sql, param) =>
-                sql.Append('(').Append(a, param).Append(' ').Append(binaryOperator).Append(' ').Append(b, param).Append(')'));
+            return new Number<T>().Init(a.DbType,
+                sql => sql.Append('(').Append(a).Append(' ').Append(binaryOperator).Append(' ').Append(b).Append(')'));
         }
         #endregion
 
-        void IDbExpression.SetSqlGenerator(Action<StringBuilder, OracleParameterCollection> sqlGenerator)
+        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
+
+        void IDbExpression.Build(SqlContext sql)
         {
-            throw new NotImplementedException();
+            ((ISqlExpressionBuilder)this).Build(sql);
         }
 
-        void IDbExpression.BuildSql(StringBuilder sql, OracleParameterCollection param)
-        {
-            throw new NotImplementedException();
-        }
-
-
-        object IDbExpression.ToDbValue(object value)
-        {
-            throw new NotImplementedException();
-        }
+        public OracleDbType DbType { get; set; }
     }
 
-    public sealed class NullableEnum<T> : Nullable<Enum<T>, T> where T : struct {
+    public sealed class NullableEnum<T> : Nullable<Enum<T>, T> where T : struct
+    {
         //public static implicit operator NullableEnum<T>(T? value)
         //{
         //    if (!value.HasValue)
@@ -395,7 +365,8 @@ namespace Linq2Oracle.Expressions
         //}
     }
 
-    public sealed class NullableNumber<T> : Nullable<Number<T>, T> where T : struct {
+    public sealed class NullableNumber<T> : Nullable<Number<T>, T> where T : struct
+    {
         //public static implicit operator NullableNumber<T>(T? value)
         //{
         //    if (!value.HasValue)
