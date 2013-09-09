@@ -307,7 +307,7 @@ namespace Linq2Oracle
         internal Predicate GetGroupKeyPredicate<TKey>(TKey groupKey)
         {
             if (_memberMap == null)
-                return new Predicate(true);
+                return new Predicate();
 
             if (_memberMap.Count == 1 && !_isComplexTypeKey)
             {

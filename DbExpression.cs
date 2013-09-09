@@ -26,7 +26,7 @@ namespace Linq2Oracle
 
     public class DbExpression<T> : DbExpression
     {
-        [Obsolete("You should not use this conversion operator.", true)]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1065:DoNotRaiseExceptionsInUnexpectedLocations"), Obsolete("You should not use this conversion operator.", true)]
         public static implicit operator DbExpression<T>(T value)
         {
             throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "T => DbExpression<T> conversion operator can't use.");
