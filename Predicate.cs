@@ -9,6 +9,8 @@ namespace Linq2Oracle
     /// </summary>
     public struct Predicate
     {
+        public static readonly Predicate Ignore = new Predicate();
+
         readonly Action<StringBuilder, OracleParameterCollection> _builder;
 
         internal bool IsVaild { get { return _builder != null; } }
@@ -24,65 +26,52 @@ namespace Linq2Oracle
                 _builder(sql, parameters);
         }
 
-        /// <summary>
-        /// Optional SQL predicate when localCondition is true
-        /// </summary>
-        /// <param name="localCondition"></param>
-        /// <returns></returns>
-        public Predicate When(bool localCondition)
-        {
-            return localCondition ? this : new Predicate();
-        }
-
         public static Predicate operator |(Predicate x, Predicate y)
         {
             bool l = x.IsVaild, r = y.IsVaild;
-            if (!(l || r))
-                return new Predicate();
-            if (l && r)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("(");
-                    x.Build(sql, param);
-                    sql.Append(" OR ");
-                    y.Build(sql, param);
-                    sql.Append(")");
-                });
-            if (l)
-                return x;
-            return y;
+
+            if (l && r) return new Predicate((sql, param) =>
+            {
+                sql.Append("(");
+                x.Build(sql, param);
+                sql.Append(" OR ");
+                y.Build(sql, param);
+                sql.Append(")");
+            });
+
+            if (l) return x;
+            if (r) return y;
+            return Ignore;
         }
 
         public static Predicate operator &(Predicate x, Predicate y)
         {
-            bool l = x.IsVaild,
-                r = y.IsVaild;
-            if (!(l || r))
-                return new Predicate();
-            if (l && r)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("(");
-                    x.Build(sql, param);
-                    sql.Append(" AND ");
-                    y.Build(sql, param);
-                    sql.Append(")");
-                });
-            if (r)
-                return y;
-            return x;
+            bool l = x.IsVaild, r = y.IsVaild;
+
+            if (l && r) return new Predicate((sql, param) =>
+            {
+                sql.Append("(");
+                x.Build(sql, param);
+                sql.Append(" AND ");
+                y.Build(sql, param);
+                sql.Append(")");
+            });
+
+            if (l) return x;
+            if (r) return y;
+            return Ignore;
         }
 
         public static Predicate operator !(Predicate x)
         {
-            if (x.IsVaild)
-                return new Predicate((sql, param) =>
-                {
-                    sql.Append("NOT (");
-                    x.Build(sql, param);
-                    sql.Append(")");
-                });
-            return new Predicate();
+            if (x.IsVaild) return new Predicate((sql, param) =>
+            {
+                sql.Append("NOT (");
+                x.Build(sql, param);
+                sql.Append(")");
+            });
+
+            return Ignore;
         }
 
         public static bool operator false(Predicate x)
