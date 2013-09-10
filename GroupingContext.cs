@@ -90,6 +90,11 @@ namespace Linq2Oracle
         public OracleDB Db { get { return _context.Db; } }
 
         public string TableName { get { return Table<T>.TableName; } }
+
+        IQueryContext IQueryContext.OriginalSource
+        {
+            get { return _context.OriginalSource; }
+        }
         #endregion
         #region IEnumerator<GroupingContext<C, T, TKey, TElement>> 成員
         public IEnumerator<GroupingContext<C, T, TKey, TElement>> GetEnumerator()
@@ -111,11 +116,6 @@ namespace Linq2Oracle
             return this.GetEnumerator();
         }
         #endregion
-
-        public IQueryContext OriginalSource
-        {
-            get { return _context.OriginalSource; }
-        }
     }
 
     [DebuggerDisplay("{Key}")]
@@ -330,6 +330,11 @@ namespace Linq2Oracle
         OracleDB IQueryContext.Db { get { return _context.Db; } }
 
         public string TableName { get { return _context.TableName; } }
+
+        IQueryContext IQueryContext.OriginalSource
+        {
+            get { return _context.OriginalSource; }
+        }
         #endregion
         #region IEnumerable<T> 成員
         IEnumerator<T> IEnumerable<T>.GetEnumerator()
@@ -343,10 +348,5 @@ namespace Linq2Oracle
             return _data.GetEnumerator();
         }
         #endregion
-
-        public IQueryContext OriginalSource
-        {
-            get { return _context.OriginalSource; }
-        }
     }
 }
