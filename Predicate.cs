@@ -22,40 +22,32 @@ namespace Linq2Oracle
                 _builder(sql);
         }
 
-        public Boolean When(bool localCondition)
-        {
-            return localCondition ? this : new Boolean();
-        }
-
         public static Boolean operator |(Boolean x, Boolean y)
         {
             bool l = x.IsVaild, r = y.IsVaild;
-            if (!(l || r))
-                return new Boolean();
-            if (l && r)
-                return new Boolean(sql => sql.Append("(").Append(x).Append(" OR ").Append(y).Append(")"));
-            if (l)
-                return x;
-            return y;
+            
+            if (l && r) return new Boolean(sql => sql.Append("(").Append(x).Append(" OR ").Append(y).Append(")"));
+            if (l) return x;
+            if (r) return y;
+
+            return default(Boolean);
         }
 
         public static Boolean operator &(Boolean x, Boolean y)
         {
             bool l = x.IsVaild, r = y.IsVaild;
-            if (!(l || r))
-                return new Boolean();
-            if (l && r)
-                return new Boolean(sql => sql.Append("(").Append(x).Append(" AND ").Append(y).Append(")"));
-            if (r)
-                return y;
-            return x;
+
+            if (l && r) return new Boolean(sql => sql.Append("(").Append(x).Append(" AND ").Append(y).Append(")"));
+            if (l) return x;
+            if (r) return y;
+
+            return default(Boolean);
         }
 
         public static Boolean operator !(Boolean x)
         {
-            if (x.IsVaild)
-                return new Boolean(sql => sql.Append("NOT (").Append(x).Append(")"));
-            return new Boolean();
+            if (x.IsVaild) return new Boolean(sql => sql.Append("NOT (").Append(x).Append(")"));
+            return default(Boolean);
         }
 
         public static bool operator false(Boolean x)
