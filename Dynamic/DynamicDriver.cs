@@ -249,6 +249,8 @@ using Oracle.ManagedDataAccess.Client;");
                     source.AppendLine("public sealed class Columns {");
                     foreach (var c in table.Columns)
                     {
+                        if (c.ClrType == typeof(byte[]))
+                            continue;
                         string strClrType = ToQueryTypeString(c.ClrType);
                         source.Append("public ").Append(strClrType).Append(" ").Append(c.ColumnName).AppendLine(" { get; private set; }");
                     }
