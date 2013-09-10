@@ -27,16 +27,16 @@ namespace Linq2Oracle
     {
         readonly QueryContext<C, T, TElement> _context;
         readonly Lazy<GroupingKeySelector> _keySelector;
-        readonly IReadOnlyList<Boolean> _having;
+        readonly IReadOnlyList<SqlBoolean> _having;
 
         internal GroupingContextCollection(QueryContext<C, T, TElement> context, Expression<Func<T, TKey>> keySelector)
         {
             this._context = context;
             this._keySelector = new System.Lazy<GroupingKeySelector>(() => GroupingKeySelector.Create(keySelector));
-            this._having = EmptyList<Boolean>.Instance;
+            this._having = EmptyList<SqlBoolean>.Instance;
         }
 
-        GroupingContextCollection(QueryContext<C, T, TElement> context, Lazy<GroupingKeySelector> keySelector, IReadOnlyList<Boolean> filters)
+        GroupingContextCollection(QueryContext<C, T, TElement> context, Lazy<GroupingKeySelector> keySelector, IReadOnlyList<SqlBoolean> filters)
         {
             this._context = context;
             this._keySelector = keySelector;
@@ -54,12 +54,12 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public GroupingContextCollection<C, T, TKey, TElement> Where(Func<HavingContext<T, C>, Boolean> predicate)
+        public GroupingContextCollection<C, T, TKey, TElement> Where(Func<HavingContext<T, C>, SqlBoolean> predicate)
         {
             return new GroupingContextCollection<C, T, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
-                filters: new List<Boolean>(_having) { predicate(new HavingContext<T, C>(_context.ColumnDefine)) });
+                filters: new List<SqlBoolean>(_having) { predicate(new HavingContext<T, C>(_context.ColumnDefine)) });
         }
         #endregion
         #region Select
@@ -104,7 +104,7 @@ namespace Linq2Oracle
                 var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
                 var newClosure = _context._closure;
                 if (keyPredicate.IsVaild)
-                    newClosure.Filters = new List<Boolean>(_context._closure.Filters) { keyPredicate };
+                    newClosure.Filters = new List<SqlBoolean>(_context._closure.Filters) { keyPredicate };
 
                 yield return new GroupingContext<C, T, TKey, TElement>(_context.OriginalSource, key, _context.Db, _context._projection, _context._genSql, newClosure, _context.ColumnDefine);
             }
@@ -261,13 +261,13 @@ namespace Linq2Oracle
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly IQueryContext _context;
 
-        readonly IEnumerable<Boolean> _having;
+        readonly IEnumerable<SqlBoolean> _having;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly Lazy<GroupingAggregate> _aggregate;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<Boolean> having)
+        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<SqlBoolean> having)
         {
             _context = context;
             _having = having;

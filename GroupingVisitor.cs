@@ -5,6 +5,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
 using Oracle.ManagedDataAccess.Client;
+using Linq2Oracle.Expressions;
 
 namespace Linq2Oracle
 {
@@ -304,22 +305,22 @@ namespace Linq2Oracle
             return _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
         }
 
-        internal Boolean GetGroupKeyPredicate<TKey>(TKey groupKey)
+        internal SqlBoolean GetGroupKeyPredicate<TKey>(TKey groupKey)
         {
             if (_memberMap == null)
-                return new Boolean();
+                return new SqlBoolean();
 
             if (_memberMap.Count == 1 && !_isComplexTypeKey)
             {
                 var c = _memberMap.Values.First();
                 if (groupKey == null)
-                    return new Boolean(sql => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
+                    return new SqlBoolean(sql => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
 
-                return new Boolean(sql => sql.Append(c.TableQuotesColumnName).Append(" = ")
+                return new SqlBoolean(sql => sql.Append(c.TableQuotesColumnName).Append(" = ")
                     .AppendParam(c.DbType, groupKey)); // here is different with complex type of Key
             }
 
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
             {
                 string delimiter = string.Empty;
                 foreach (var c in _memberMap.Values)

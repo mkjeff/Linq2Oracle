@@ -123,7 +123,7 @@ namespace Linq2Oracle
         {
             return this.AsEnumerable().Single();
         }
-        public TResult Single(Func<C, Boolean> predicate)
+        public TResult Single(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Single();
         }
@@ -131,7 +131,7 @@ namespace Linq2Oracle
         {
             return this.AsEnumerable().SingleOrDefault();
         }
-        public TResult SingleOrDefault(Func<C, Boolean> predicate)
+        public TResult SingleOrDefault(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).SingleOrDefault();
         }
@@ -141,7 +141,7 @@ namespace Linq2Oracle
         {
             return this.Take(1).AsEnumerable().First();
         }
-        public TResult First(Func<C, Boolean> predicate)
+        public TResult First(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Take(1).First();
         }
@@ -150,7 +150,7 @@ namespace Linq2Oracle
         {
             return this.Take(1).AsEnumerable().FirstOrDefault();
         }
-        public TResult FirstOrDefault(Func<C, Boolean> predicate)
+        public TResult FirstOrDefault(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Take(1).FirstOrDefault();
         }
@@ -161,7 +161,7 @@ namespace Linq2Oracle
             if (count <= 0)
                 return this;
             var newC = _closure;
-            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
                 {
@@ -188,7 +188,7 @@ namespace Linq2Oracle
             if (count < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
                 {
@@ -225,7 +225,7 @@ namespace Linq2Oracle
         {
             int skip = (pageNo - 1) * pageSize;
             var newC = _closure;
-            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
             {
@@ -271,7 +271,7 @@ namespace Linq2Oracle
             if (sum < 0)
                 return this;
             var newC = _closure;
-            newC.Filters = EmptyList<Boolean>.Instance;
+            newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
             {
@@ -390,13 +390,13 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TResult> Where(Func<C, Boolean> predicate)
+        public QueryContext<C, T, TResult> Where(Func<C, SqlBoolean> predicate)
         {
             var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)
                 return this;
             var newC = _closure;
-            newC.Filters = new List<Boolean>(_closure.Filters) { filter };
+            newC.Filters = new List<SqlBoolean>(_closure.Filters) { filter };
             return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
         }
         #endregion
@@ -495,7 +495,7 @@ namespace Linq2Oracle
                 projector: _projection,
                 closure: new Closure
                 {
-                    Filters = EmptyList<Boolean>.Instance,
+                    Filters = EmptyList<SqlBoolean>.Instance,
                     Orderby = EmptyList<SortDescription>.Instance,
                     Tables = EmptyList<IQueryContext>.Instance,
                 },
@@ -758,7 +758,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public int Count(Func<C, Boolean> predicate)
+        public int Count(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Count();
         }
@@ -777,7 +777,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public long LongCount(Func<C, Boolean> predicate)
+        public long LongCount(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).LongCount();
         }
@@ -800,7 +800,7 @@ namespace Linq2Oracle
                         return (decimal)_db.ExecuteScalar(cmd) == 1;
                     }
                 },
-                predicate: new Boolean(sql =>
+                predicate: new SqlBoolean(sql =>
                 {
                     sql.Append("EXISTS (");
                     var newC = _closure;
@@ -810,7 +810,7 @@ namespace Linq2Oracle
                 }));
         }
 
-        public BooleanContext Any(Func<C, Boolean> predicate)
+        public BooleanContext Any(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Any();
         }
@@ -818,12 +818,12 @@ namespace Linq2Oracle
         public BooleanContext IsEmpty()
         {
             var any = Any();
-            return new BooleanContext(() => !any, !(Boolean)any);
+            return new BooleanContext(() => !any, !(SqlBoolean)any);
         }
         #endregion
         #region All
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        public bool All(Func<C, Boolean> predicate)
+        public bool All(Func<C, SqlBoolean> predicate)
         {
             var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)
@@ -984,7 +984,7 @@ namespace Linq2Oracle
         public EntityTable(OracleDB db)
             : base(db, identityProjection, new Closure
             {
-                Filters = EmptyList<Boolean>.Instance,
+                Filters = EmptyList<SqlBoolean>.Instance,
                 Orderby = EmptyList<SortDescription>.Instance,
                 Tables = EmptyList<IQueryContext>.Instance,
             }) { }
@@ -993,7 +993,7 @@ namespace Linq2Oracle
     struct Closure
     {
         public IReadOnlyList<IQueryContext> Tables;
-        public IReadOnlyList<Boolean> Filters;
+        public IReadOnlyList<SqlBoolean> Filters;
         public IReadOnlyList<SortDescription> Orderby;
         public bool Distinct;
 

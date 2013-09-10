@@ -25,13 +25,13 @@ namespace Linq2Oracle
         #endregion
 
         #region Where Column In (...)
-        public static Boolean In<T>(this IDbExpression<T> @this, IEnumerable<T> values)
+        public static SqlBoolean In<T>(this IDbExpression<T> @this, IEnumerable<T> values)
         {
             return @this.In(values.ToArray());
         }
-        public static Boolean In<T>(this IDbExpression<T> @this, params T[] values)
+        public static SqlBoolean In<T>(this IDbExpression<T> @this, params T[] values)
         {
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
             {
                 if (values.Length == 0)
                 {
@@ -60,17 +60,17 @@ namespace Linq2Oracle
             });
         }
 
-        public static Boolean In<T>(this IDbExpression<T> @this, IQueryContext<T> subquery)
+        public static SqlBoolean In<T>(this IDbExpression<T> @this, IQueryContext<T> subquery)
         {
-            return new Boolean(sql => sql.Append(@this).Append(" IN (").Append(subquery).Append(')'));
+            return new SqlBoolean(sql => sql.Append(@this).Append(" IN (").Append(subquery).Append(')'));
         }
         #endregion
         #region Where (Column1,Column2) In (...)
-        public static Boolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, params Tuple<T1, T2>[] values)
+        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, params Tuple<T1, T2>[] values)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
         {
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
             {
                 if (values.Length == 0)
                 {
@@ -102,18 +102,18 @@ namespace Linq2Oracle
             });
         }
 
-        public static Boolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IEnumerable<Tuple<T1, T2>> values)
+        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IEnumerable<Tuple<T1, T2>> values)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
         {
             return @this.In(values.ToArray());
         }
 
-        public static Boolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IQueryContext<Tuple<T1, T2>> subquery)
+        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IQueryContext<Tuple<T1, T2>> subquery)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
         {
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
                 sql.Append('(')
                     .Append(@this.Item1).Append(',')
                     .Append(@this.Item2).Append(") IN (")
@@ -122,12 +122,12 @@ namespace Linq2Oracle
         }
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
-        public static Boolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, params Tuple<T1, T2, T3>[] values)
+        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, params Tuple<T1, T2, T3>[] values)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
             where C3 : IDbExpression<T3>
         {
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
             {
                 if (values.Length == 0)
                 {
@@ -166,7 +166,7 @@ namespace Linq2Oracle
             });
         }
 
-        public static Boolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
+        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
             where C3 : IDbExpression<T3>
@@ -174,12 +174,12 @@ namespace Linq2Oracle
             return @this.In(values.ToArray());
         }
 
-        public static Boolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
+        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
             where C1 : IDbExpression<T1>
             where C2 : IDbExpression<T2>
             where C3 : IDbExpression<T3>
         {
-            return new Boolean(sql =>
+            return new SqlBoolean(sql =>
                 sql.Append('(')
                     .Append(@this.Item1).Append(',')
                     .Append(@this.Item2).Append(',')
@@ -190,7 +190,7 @@ namespace Linq2Oracle
         #endregion
 
         #region Delete
-        public static int Delete<C, T>(this QueryContext<C, T, T> @this, Func<C, Boolean> predicate = null)
+        public static int Delete<C, T>(this QueryContext<C, T, T> @this, Func<C, SqlBoolean> predicate = null)
             where T : DbEntity
             where C : class,new()
         {

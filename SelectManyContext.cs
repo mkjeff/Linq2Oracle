@@ -30,13 +30,13 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public SelectManyContext<C, T, TResult, _> Where(Func<_, Boolean> predicate)
+        public SelectManyContext<C, T, TResult, _> Where(Func<_, SqlBoolean> predicate)
         {
             var filter = predicate(_transparentId);
             if (!filter.IsVaild)
                 return this;
             var newC = _closure;
-            newC.Filters = new List<Boolean>(_closure.Filters) { filter };
+            newC.Filters = new List<SqlBoolean>(_closure.Filters) { filter };
             return new SelectManyContext<C, T, TResult, _>(OriginalSource, _db, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
         #endregion

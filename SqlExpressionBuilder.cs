@@ -21,7 +21,7 @@ namespace Linq2Oracle.Expressions
             return column;
         }
 
-        public static Boolean IsEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean IsEquals(this IDbExpression a, IDbExpression b)
         {          
             if (a == null)
                 return b.IsNull();
@@ -29,10 +29,10 @@ namespace Linq2Oracle.Expressions
             if (b == null)
                 return a.IsNull();
 
-            return new Boolean(sql => sql.Append(a).Append(" = ").Append(b));
+            return new SqlBoolean(sql => sql.Append(a).Append(" = ").Append(b));
         }
 
-        public static Boolean NotEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean NotEquals(this IDbExpression a, IDbExpression b)
         {
             if (a == null)
                 return b.IsNotNull();
@@ -40,50 +40,50 @@ namespace Linq2Oracle.Expressions
             if (b == null)
                 return a.IsNotNull();
 
-            return new Boolean(sql => sql.Append(a).Append(" <> ").Append(b));
+            return new SqlBoolean(sql => sql.Append(a).Append(" <> ").Append(b));
         }
 
-        public static Boolean IsNull(this IDbExpression a)
+        public static SqlBoolean IsNull(this IDbExpression a)
         {
-            return new Boolean(sql => sql.Append(a).Append(" IS NULL"));
+            return new SqlBoolean(sql => sql.Append(a).Append(" IS NULL"));
         }
 
-        public static Boolean IsNotNull(this IDbExpression a)
+        public static SqlBoolean IsNotNull(this IDbExpression a)
         {
-            return new Boolean(sql => sql.Append(a).Append(" IS NOT NULL"));
+            return new SqlBoolean(sql => sql.Append(a).Append(" IS NOT NULL"));
         }
 
-        public static Boolean GreatThan(this IDbExpression a, IDbExpression b)
-        {
-            if (a == null && b == null)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Boolean(sql => sql.Append(a).Append(" > ").Append(b));
-        }
-
-        public static Boolean GreatThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean GreatThan(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Boolean(sql => sql.Append(a).Append(" >= ").Append(b));
+            return new SqlBoolean(sql => sql.Append(a).Append(" > ").Append(b));
         }
 
-        public static Boolean LessThan(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean GreatThanOrEquals(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Boolean(sql => sql.Append(a).Append(" < ").Append(b));
+            return new SqlBoolean(sql => sql.Append(a).Append(" >= ").Append(b));
         }
 
-        public static Boolean LessThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean LessThan(this IDbExpression a, IDbExpression b)
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new Boolean(sql => sql.Append(a).Append(" <= ").Append(b));
+            return new SqlBoolean(sql => sql.Append(a).Append(" < ").Append(b));
         }
 
-        public static Boolean Like(this String a, string pattern)
+        public static SqlBoolean LessThanOrEquals(this IDbExpression a, IDbExpression b)
         {
-            return new Boolean(sql => sql.Append(a).Append(" LIKE ").AppendParam(pattern));
+            if (a == null && b == null)
+                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
+            return new SqlBoolean(sql => sql.Append(a).Append(" <= ").Append(b));
+        }
+
+        public static SqlBoolean Like(this String a, string pattern)
+        {
+            return new SqlBoolean(sql => sql.Append(a).Append(" LIKE ").AppendParam(pattern));
         }
 
          

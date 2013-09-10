@@ -3,15 +3,15 @@ using System;
 using System.Text;
 using System.Collections.Generic;
 
-namespace Linq2Oracle
+namespace Linq2Oracle.Expressions
 {
-    public struct Boolean
+    public struct SqlBoolean
     {
         readonly Action<SqlContext> _builder;
 
         internal bool IsVaild { get { return _builder != null; } }
 
-        internal Boolean(Action<SqlContext> sqlBuilder)
+        internal SqlBoolean(Action<SqlContext> sqlBuilder)
         {
             _builder = sqlBuilder;
         }
@@ -22,42 +22,42 @@ namespace Linq2Oracle
                 _builder(sql);
         }
 
-        public static Boolean operator |(Boolean x, Boolean y)
+        public static SqlBoolean operator |(SqlBoolean x, SqlBoolean y)
         {
             bool l = x.IsVaild, r = y.IsVaild;
             
-            if (l && r) return new Boolean(sql => sql.Append("(").Append(x).Append(" OR ").Append(y).Append(")"));
+            if (l && r) return new SqlBoolean(sql => sql.Append("(").Append(x).Append(" OR ").Append(y).Append(")"));
             if (l) return x;
             if (r) return y;
 
-            return default(Boolean);
+            return default(SqlBoolean);
         }
 
-        public static Boolean operator &(Boolean x, Boolean y)
+        public static SqlBoolean operator &(SqlBoolean x, SqlBoolean y)
         {
             bool l = x.IsVaild, r = y.IsVaild;
 
-            if (l && r) return new Boolean(sql => sql.Append("(").Append(x).Append(" AND ").Append(y).Append(")"));
+            if (l && r) return new SqlBoolean(sql => sql.Append("(").Append(x).Append(" AND ").Append(y).Append(")"));
             if (l) return x;
             if (r) return y;
 
-            return default(Boolean);
+            return default(SqlBoolean);
         }
 
-        public static Boolean operator !(Boolean x)
+        public static SqlBoolean operator !(SqlBoolean x)
         {
-            if (x.IsVaild) return new Boolean(sql => sql.Append("NOT (").Append(x).Append(")"));
-            return default(Boolean);
+            if (x.IsVaild) return new SqlBoolean(sql => sql.Append("NOT (").Append(x).Append(")"));
+            return default(SqlBoolean);
         }
 
-        public static bool operator false(Boolean x)
+        public static bool operator false(SqlBoolean x)
         {
             // Used by operator && (7.11.2)
             // x && y --> T.false(x) ? x : T.&(x,y)
             return !x.IsVaild;
         }
 
-        public static bool operator true(Boolean x)
+        public static bool operator true(SqlBoolean x)
         {
             // Used by operator || (7.11.2)
             // x || y --> T.true(x) ? x : T.|(x,y)
@@ -68,9 +68,9 @@ namespace Linq2Oracle
     public struct BooleanContext
     {
         readonly Func<bool> _valueProvider;
-        readonly Boolean _predicate;
+        readonly SqlBoolean _predicate;
 
-        internal BooleanContext(Func<bool> valueProvider, Boolean predicate)
+        internal BooleanContext(Func<bool> valueProvider, SqlBoolean predicate)
         {
             _valueProvider = valueProvider;
             _predicate = predicate;
@@ -86,7 +86,7 @@ namespace Linq2Oracle
             return @this._valueProvider();
         }
 
-        public static implicit operator Boolean(BooleanContext @this)
+        public static implicit operator SqlBoolean(BooleanContext @this)
         {
             return @this._predicate;
         }

@@ -45,32 +45,32 @@ namespace Linq2Oracle.Expressions
             return new String().Init(OracleDbType.Varchar2, sql => sql.AppendParam(value));
         }
 
-        public static Boolean operator ==(String a, String b)
+        public static SqlBoolean operator ==(String a, String b)
         {
             return a.IsEquals(b);
         }
 
-        public static Boolean operator !=(String a, String b)
+        public static SqlBoolean operator !=(String a, String b)
         {
             return a.NotEquals(b);
         }
 
-        public static Boolean operator >(String a, String b)
+        public static SqlBoolean operator >(String a, String b)
         {
             return a.GreatThan(b);
         }
 
-        public static Boolean operator >=(String a, String b)
+        public static SqlBoolean operator >=(String a, String b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static Boolean operator <(String a, String b)
+        public static SqlBoolean operator <(String a, String b)
         {
             return a.LessThan(b);
         }
 
-        public static Boolean operator <=(String a, String b)
+        public static SqlBoolean operator <=(String a, String b)
         {
             return a.LessThanOrEquals(b);
         }
@@ -100,27 +100,27 @@ namespace Linq2Oracle.Expressions
         #endregion
 
         #region Methods
-        public Boolean IsNullOrEmpty()
+        public SqlBoolean IsNullOrEmpty()
         {
             return this.IsNull();
         }
 
-        public Boolean IsNullOrWhiteSpace()
+        public SqlBoolean IsNullOrWhiteSpace()
         {
             return this.TrimStart().IsNull();
         }
 
-        public Boolean StartsWith(string str)
+        public SqlBoolean StartsWith(string str)
         {
             return this.Like(str + "%");
         }
 
-        public Boolean EndsWith(string str)
+        public SqlBoolean EndsWith(string str)
         {
             return this.Like("%" + str);
         }
 
-        public Boolean Contains(string str)
+        public SqlBoolean Contains(string str)
         {
             return this.Like("%" + str + "%");
         }
@@ -211,32 +211,32 @@ namespace Linq2Oracle.Expressions
             return new Nullable<TExpr, T>();
         }
 
-        public static Boolean operator ==(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator ==(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.IsEquals(b);
         }
 
-        public static Boolean operator !=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator !=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.NotEquals(b);
         }
 
-        public static Boolean operator >(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator >(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.GreatThan(b);
         }
 
-        public static Boolean operator >=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator >=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static Boolean operator <(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator <(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.LessThan(b);
         }
 
-        public static Boolean operator <=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator <=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
         {
             return a.LessThanOrEquals(b);
         }
@@ -308,12 +308,12 @@ namespace Linq2Oracle.Expressions
             return new NullableNumber<T>();
         }
 
-        public static Boolean operator ==(Number<T> a, Number<T> b)
+        public static SqlBoolean operator ==(Number<T> a, Number<T> b)
         {
             return a.IsEquals(b);
         }
 
-        public static Boolean operator !=(Number<T> a, Number<T> b)
+        public static SqlBoolean operator !=(Number<T> a, Number<T> b)
         {
             return a.NotEquals(b);
         }

@@ -44,7 +44,7 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext Append(Boolean predicate)
+        internal SqlContext Append(SqlBoolean predicate)
         {
             predicate.Build(this);
             return this;
@@ -115,7 +115,7 @@ namespace Linq2Oracle
                 sql.Append(" FOR UPDATE SKIP LOCKED");
         }
 
-        internal SqlContext AppendWhere(IEnumerable<Boolean> filters)
+        internal SqlContext AppendWhere(IEnumerable<SqlBoolean> filters)
         {
             if (filters.Any())
             {
@@ -130,7 +130,7 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext AppendHaving(IEnumerable<Boolean> filters)
+        internal SqlContext AppendHaving(IEnumerable<SqlBoolean> filters)
         {
             if (filters.Any())
             {
