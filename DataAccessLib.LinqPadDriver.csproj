@@ -97,7 +97,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Odp.net LINQ Provider\Odp.net LINQ Provider.csproj">
+    <ProjectReference Include="..\Odp.net LINQ Provider-v2\Odp.net LINQ Provider.csproj">
       <Project>{908cd81d-a4bd-4008-92f2-48decc6cf4e0}</Project>
       <Name>Odp.net LINQ Provider</Name>
     </ProjectReference>

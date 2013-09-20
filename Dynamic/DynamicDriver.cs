@@ -324,23 +324,52 @@ using Oracle.ManagedDataAccess.Client;");
 
         string ToQueryTypeString(Type t)
         {
-            Type nonNullable = GetNonNullType(t);
-            if (nonNullable == typeof(string))
-                return "Linq2Oracle.String";
-            if (nonNullable.IsEnum)
-                return "Linq2Oracle.Enum<" + GetFriendlyName(t) + ">";
-            if (nonNullable == typeof(DateTime))
-                return "Linq2Oracle.DateTime<" + GetFriendlyName(t) + ">";
-            if (nonNullable == typeof(char))
-                return "Linq2Oracle.DbExpression<" + GetFriendlyName(t) + ">";
-            return "Linq2Oracle.Number<" + GetFriendlyName(t) + ">";
-        }
-
-        static Type GetNonNullType(Type t)
-        {
-            if (t.IsGenericType && t.GetGenericTypeDefinition() == (typeof(Nullable<>)))
-                return t.GetGenericArguments()[0];
-            return t;
+            if (t == typeof(string))
+                return typeof(Linq2Oracle.Expressions.DbString).FullName;
+            Type nonNullable = Nullable.GetUnderlyingType(t);
+            if (nonNullable != null)
+            {
+                if (nonNullable.IsEnum)
+                    return typeof(Linq2Oracle.Expressions.NullableEnum<>).MakeGenericType(nonNullable).FullName;
+                if (nonNullable == typeof(DateTime))
+                    return typeof(Linq2Oracle.Expressions.NullableDbDateTime).FullName;
+                if (nonNullable == typeof(char))
+                    return  typeof(Linq2Oracle.Expressions.NullableDbChar).FullName;
+                if (nonNullable == typeof(short))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+                if (nonNullable == typeof(int))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+                if (nonNullable == typeof(long))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+                if (nonNullable == typeof(float))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+                if (nonNullable == typeof(double))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+                if (nonNullable == typeof(decimal))
+                    return typeof(Linq2Oracle.Expressions.NullableDbNumber).FullName;
+            }
+            else
+            {
+                if (t.IsEnum)
+                    return typeof(Linq2Oracle.Expressions.Enum<>).MakeGenericType(t).FullName;
+                if (t == typeof(System.DateTime))
+                    return typeof(Linq2Oracle.Expressions.DbDateTime).Name;
+                if (t == typeof(char))
+                    return typeof(Linq2Oracle.Expressions.DbChar).FullName;
+                if (t == typeof(short))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+                if (t == typeof(int))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+                if (t == typeof(long))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+                if (t == typeof(float))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+                if (t == typeof(double))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+                if (t == typeof(decimal))
+                    return typeof(Linq2Oracle.Expressions.DbNumber).FullName;
+            }
+            throw new NotSupportedException("Data type :"+t + " is not supported");
         }
 
         static string GetFriendlyName(Type t)
@@ -367,7 +396,7 @@ using Oracle.ManagedDataAccess.Client;");
                 return typeof(string);
             }
 
-            if (oracleType == "NUMBER")
+            if (oracleType == "NUMBER" && (scale ?? 0) == 0)
             {
                 if (precision == null)
                 {
@@ -389,8 +418,7 @@ using Oracle.ManagedDataAccess.Client;");
                         return isNullable ? typeof(long?) : typeof(long);
                     if (precision >= 6)
                         return isNullable ? typeof(int?) : typeof(int);
-                    else
-                        return isNullable ? typeof(short?) : typeof(short);
+                    return isNullable ? typeof(short?) : typeof(short);
                 }
             }
 

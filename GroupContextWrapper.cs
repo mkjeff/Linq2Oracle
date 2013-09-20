@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 
 namespace Linq2Oracle.LinqPad
 {
-    sealed class GroupContextWrapper<T, C, TKey, TElement> where T : DbEntity
+    sealed class GroupContextWrapper<C, T, TKey, TElement>
+        where T : DbEntity
+        where C : class,new()
     {
-        readonly GroupingContext<T, C, TKey, TElement> _group;
-        public GroupContextWrapper(GroupingContext<T, C, TKey, TElement> group)
+        readonly GroupingContext<C, T, TKey, TElement> _group;
+        public GroupContextWrapper(GroupingContext<C, T, TKey, TElement> group)
         {
             _group = group;
         }
