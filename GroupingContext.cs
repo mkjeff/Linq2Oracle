@@ -115,19 +115,6 @@ namespace Linq2Oracle
             return this.GetEnumerator();
         }
         #endregion
-
-        //public IEnumerable<GroupingContext<C, T, TKey, TElement>> AsEnumerable()
-        //{
-        //    foreach (var key in this.Select(g => g.Key).AsEnumerable())
-        //    {
-        //        var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
-        //        var newClosure = _context._closure;
-        //        if (keyPredicate.IsVaild)
-        //            newClosure.Filters = new List<SqlBoolean>(_context._closure.Filters) { keyPredicate };
-
-        //        yield return new GroupingContext<C, T, TKey, TElement>(_context.OriginalSource, key, _context.Db, _context._projection, _context._genSql, newClosure, _context.ColumnDefine);
-        //    }
-        //}
     }
 
     [DebuggerDisplay("{Key}")]

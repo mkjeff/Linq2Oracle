@@ -316,7 +316,7 @@ namespace Linq2Oracle
                 if (groupKey == null)
                     return new SqlBoolean(sql => sql.Append(c.TableQuotesColumnName).Append(" IS NULL"));
 
-                return new SqlBoolean(sql => sql.Append(c.TableQuotesColumnName).Append(" = ")
+                return new SqlBoolean(sql => sql.Append("t0.").Append(c.QuotesColumnName).Append(" = ")
                     .AppendParam(c.DbType, groupKey)); // here is different with complex type of Key
             }
 
@@ -327,7 +327,7 @@ namespace Linq2Oracle
                 {
                     var value = c.GetDbValue(groupKey);
                     sql.Append(delimiter);
-                    sql.Append(c.TableQuotesColumnName);
+                    sql.Append("t0.").Append(c.QuotesColumnName);
                     if (value == DBNull.Value)
                         sql.Append("IS NULL");
                     else
