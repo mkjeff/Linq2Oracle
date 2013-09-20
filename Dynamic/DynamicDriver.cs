@@ -1,4 +1,5 @@
 ﻿using Linq2Oracle;
+using Linq2Oracle.Expressions;
 using LINQPad;
 using LINQPad.Extensibility.DataContext;
 using Microsoft.CSharp;
@@ -122,7 +123,45 @@ namespace Linq2Oracle.LinqPad
         {
             if (objectToWrite == null)
                 return;
+
+            if (objectToWrite is BooleanContext)
+            {
+                objectToWrite = (bool)(BooleanContext)objectToWrite;
+                return;
+            }
+
+            if (objectToWrite is DbNumber)
+            {
+                objectToWrite = (decimal)(DbNumber)objectToWrite;
+                return;
+            }
+
+            if (objectToWrite is DbString)
+            {
+                objectToWrite = (string)(DbString)objectToWrite;
+                return;
+            }
+
+            if (objectToWrite is NullableDbNumber)
+            {
+                objectToWrite = (decimal?)(NullableDbNumber)objectToWrite;
+                return;
+            }
+
+            if (objectToWrite is NullableDbDateTime)
+            {
+                objectToWrite = (DateTime?)(NullableDbDateTime)objectToWrite;
+                return;
+            }
+
+            if (objectToWrite is NullableDbTimeSpan)
+            {
+                objectToWrite = (TimeSpan?)(NullableDbTimeSpan)objectToWrite;
+                return;
+            }
+
             var type = objectToWrite.GetType();
+
             if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(GroupingContext<,,,>))
                 objectToWrite = Activator.CreateInstance(typeof(GroupContextWrapper<,,,>).MakeGenericType(type.GetGenericArguments()), objectToWrite);
         }
@@ -353,7 +392,7 @@ using Oracle.ManagedDataAccess.Client;");
                 if (t.IsEnum)
                     return typeof(Linq2Oracle.Expressions.Enum<>).MakeGenericType(t).FullName;
                 if (t == typeof(System.DateTime))
-                    return typeof(Linq2Oracle.Expressions.DbDateTime).Name;
+                    return typeof(Linq2Oracle.Expressions.DbDateTime).FullName;
                 if (t == typeof(char))
                     return typeof(Linq2Oracle.Expressions.DbChar).FullName;
                 if (t == typeof(short))
