@@ -1,3 +1,4 @@
+using Linq2Oracle.Expressions;
 using Oracle.ManagedDataAccess.Client;
 using Oracle.ManagedDataAccess.Types;
 using System.Collections;
@@ -7,12 +8,10 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
-using Linq2Oracle.Expressions;
-using System;
 
 namespace Linq2Oracle
 {
-    using SqlGenerator = Action<SqlContext, string, Closure>;
+    using SqlGenerator = System.Action<SqlContext, string, Closure>;
 
     /// <summary>
     /// GroupBy¬d¸ßµ²ªG
@@ -26,17 +25,17 @@ namespace Linq2Oracle
         where C : class,new()
     {
         readonly QueryContext<C, T, TElement> _context;
-        readonly Lazy<GroupingKeySelector> _keySelector;
+        readonly System.Lazy<GroupingKeySelector> _keySelector;
         readonly IReadOnlyList<SqlBoolean> _having;
 
-        internal GroupingContextCollection(QueryContext<C, T, TElement> context, Expression<Func<T, TKey>> keySelector)
+        internal GroupingContextCollection(QueryContext<C, T, TElement> context, Expression<System.Func<T, TKey>> keySelector)
         {
             this._context = context;
             this._keySelector = new System.Lazy<GroupingKeySelector>(() => GroupingKeySelector.Create(keySelector));
             this._having = EmptyList<SqlBoolean>.Instance;
         }
 
-        GroupingContextCollection(QueryContext<C, T, TElement> context, Lazy<GroupingKeySelector> keySelector, IReadOnlyList<SqlBoolean> filters)
+        GroupingContextCollection(QueryContext<C, T, TElement> context, System.Lazy<GroupingKeySelector> keySelector, IReadOnlyList<SqlBoolean> filters)
         {
             this._context = context;
             this._keySelector = keySelector;
@@ -46,7 +45,7 @@ namespace Linq2Oracle
         /// <summary>
         /// Debug infomation
         /// </summary>
-        IEnumerable<TKey> Keys { get { return this.Select(g => g.Key); } }
+        IEnumerable<TKey> Keys { get { return this.Select(g => g.Key).AsEnumerable(); } }
 
         #region Where(Having)
         /// <summary>
@@ -54,7 +53,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public GroupingContextCollection<C, T, TKey, TElement> Where(Func<HavingContext<T, C>, SqlBoolean> predicate)
+        public GroupingContextCollection<C, T, TKey, TElement> Where(System.Func<HavingContext<T, C>, SqlBoolean> predicate)
         {
             return new GroupingContextCollection<C, T, TKey, TElement>(
                 context: _context,
@@ -71,7 +70,7 @@ namespace Linq2Oracle
         /// <param name="file"></param>
         /// <param name="line"></param>
         /// <returns></returns>
-        public IQueryContext<TResult> Select<TResult>(Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
+        public IQueryContext<TResult> Select<TResult>(Expression<System.Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
             return new AggregateResult<TResult>(new System.Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
         }
@@ -116,6 +115,19 @@ namespace Linq2Oracle
             return this.GetEnumerator();
         }
         #endregion
+
+        //public IEnumerable<GroupingContext<C, T, TKey, TElement>> AsEnumerable()
+        //{
+        //    foreach (var key in this.Select(g => g.Key).AsEnumerable())
+        //    {
+        //        var keyPredicate = _keySelector.Value.GetGroupKeyPredicate(key);
+        //        var newClosure = _context._closure;
+        //        if (keyPredicate.IsVaild)
+        //            newClosure.Filters = new List<SqlBoolean>(_context._closure.Filters) { keyPredicate };
+
+        //        yield return new GroupingContext<C, T, TKey, TElement>(_context.OriginalSource, key, _context.Db, _context._projection, _context._genSql, newClosure, _context.ColumnDefine);
+        //    }
+        //}
     }
 
     [DebuggerDisplay("{Key}")]
@@ -125,7 +137,7 @@ namespace Linq2Oracle
     {
         public TKey Key { get; private set; }
 
-        internal GroupingContext(IQueryContext originalSource, TKey key, OracleDB db, Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
+        internal GroupingContext(IQueryContext originalSource, TKey key, OracleDB db, System.Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
             : base(db, projector, closure, originalSource, genSql, columnDefine)
         {
             Key = key;
@@ -145,59 +157,52 @@ namespace Linq2Oracle
             this.ColumnDefine = columnDefine;
         }
         #region Count / LongCount
-        public Number<int> Count()
+        public DbNumber Count()
         {
-            return new Number<int>().Init(OracleDbType.Int32,
-                sql => sql.Append("COUNT(*)"));
+            return new DbNumber().Init(sql => sql.Append("COUNT(*)"));
         }
 
-        public Number<long> LongCount()
+        public DbNumber LongCount()
         {
-            return new Number<long>().Init(OracleDbType.Int64,
-                sql => sql.Append("COUNT(*)"));
+            return new DbNumber().Init(sql => sql.Append("COUNT(*)"));
         }
         #endregion
         #region Average
-        public Number<decimal> Average<N>(Func<C, Number<N>> selector) where N : struct
+        public DbNumber Average(System.Func<C, DbNumber> selector)
         {
-            return new Number<decimal>().Init(OracleDbType.Decimal, sql =>
-                sql.Append("AVG(").Append(selector(ColumnDefine)).Append(')'));
+            return new DbNumber().Init(Function.Call("AVG", selector(ColumnDefine)));
         }
 
-        public NullableNumber<decimal> Average<N>(Func<C, NullableNumber<N>> selector) where N : struct
+        public NullableDbNumber Average(System.Func<C, NullableDbNumber> selector)
         {
-            return new NullableNumber<decimal>().Init(OracleDbType.Decimal, sql =>
-                sql.Append("AVG(").Append(selector(ColumnDefine)).Append(')'));
+            return new NullableDbNumber().Init(Function.Call("AVG", selector(ColumnDefine)));
         }
         #endregion
         #region Sum
-        public Number<N> Sum<N>(Func<C, Number<N>> selector) where N : struct
+        public DbNumber Sum(System.Func<C, DbNumber> selector) 
         {
-            return new Number<N>().Init(OracleDbType.Decimal, sql =>
-                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
+            var c = selector(ColumnDefine);
+            return new DbNumber().Init(Function.Call("SUM", selector(ColumnDefine)));
         }
 
-        public NullableNumber<N> Sum<N>(Func<C, NullableNumber<N>> selector) where N : struct
+        public NullableDbNumber Sum(System.Func<C, NullableDbNumber> selector)
         {
-            return new NullableNumber<N>().Init(OracleDbType.Decimal, sql =>
-                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
+            var c = selector(ColumnDefine);
+            return new NullableDbNumber().Init(Function.Call("SUM", selector(ColumnDefine)));
         }
         #endregion
         #region Max / Min
-        public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : IDbExpression, new()
+        public TColumn Max<TColumn>(System.Func<C, TColumn> selector) where TColumn : IDbExpression, new()
         {
             var c = selector(ColumnDefine);
-            var result = new TColumn();
-            ((ISqlExpressionBuilder)result).Init(c.DbType,
-                sql => sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
+            var result = new TColumn().Init(sql => sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
             return result;
         }
 
-        public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : IDbExpression, new()
+        public TColumn Min<TColumn>(System.Func<C, TColumn> selector) where TColumn : IDbExpression, new()
         {
             var c = selector(ColumnDefine);
-            var result = new TColumn();
-            ((ISqlExpressionBuilder)result).Init(c.DbType, sql =>
+            var result = new TColumn().Init(sql =>
                 sql.Append("MIN(").Append(selector(ColumnDefine)).Append(')'));
             return result;
         }
@@ -218,36 +223,36 @@ namespace Linq2Oracle
         long LongCount();
         #endregion
         #region Average
-        double Average(Expression<Func<T, short>> selector);
-        double Average(Expression<Func<T, int>> selector);
-        double Average(Expression<Func<T, long>> selector);
-        float Average(Expression<Func<T, float>> selector);
-        double Average(Expression<Func<T, double>> selector);
-        decimal Average(Expression<Func<T, decimal>> selector);
+        double Average(Expression<System.Func<T, short>> selector);
+        double Average(Expression<System.Func<T, int>> selector);
+        double Average(Expression<System.Func<T, long>> selector);
+        float Average(Expression<System.Func<T, float>> selector);
+        double Average(Expression<System.Func<T, double>> selector);
+        decimal Average(Expression<System.Func<T, decimal>> selector);
 
-        double? Average(Expression<Func<T, short?>> selector);
-        double? Average(Expression<Func<T, int?>> selector);
-        double? Average(Expression<Func<T, long?>> selector);
-        float? Average(Expression<Func<T, float?>> selector);
-        double? Average(Expression<Func<T, double?>> selector);
-        decimal? Average(Expression<Func<T, decimal?>> selector);
+        double? Average(Expression<System.Func<T, short?>> selector);
+        double? Average(Expression<System.Func<T, int?>> selector);
+        double? Average(Expression<System.Func<T, long?>> selector);
+        float? Average(Expression<System.Func<T, float?>> selector);
+        double? Average(Expression<System.Func<T, double?>> selector);
+        decimal? Average(Expression<System.Func<T, decimal?>> selector);
         #endregion
         #region Sum
-        int Sum(Expression<Func<T, int>> selector);
-        long Sum(Expression<Func<T, long>> selector);
-        float Sum(Expression<Func<T, float>> selector);
-        double Sum(Expression<Func<T, double>> selector);
-        decimal Sum(Expression<Func<T, decimal>> selector);
+        int Sum(Expression<System.Func<T, int>> selector);
+        long Sum(Expression<System.Func<T, long>> selector);
+        float Sum(Expression<System.Func<T, float>> selector);
+        double Sum(Expression<System.Func<T, double>> selector);
+        decimal Sum(Expression<System.Func<T, decimal>> selector);
 
-        int? Sum(Expression<Func<T, int?>> selector);
-        long? Sum(Expression<Func<T, long?>> selector);
-        float? Sum(Expression<Func<T, float?>> selector);
-        double? Sum(Expression<Func<T, double?>> selector);
-        decimal? Sum(Expression<Func<T, decimal?>> selector);
+        int? Sum(Expression<System.Func<T, int?>> selector);
+        long? Sum(Expression<System.Func<T, long?>> selector);
+        float? Sum(Expression<System.Func<T, float?>> selector);
+        double? Sum(Expression<System.Func<T, double?>> selector);
+        decimal? Sum(Expression<System.Func<T, decimal?>> selector);
         #endregion
         #region Max / Min
-        TR Max<TR>(Expression<Func<T, TR>> selector);
-        TR Min<TR>(Expression<Func<T, TR>> selector);
+        TR Max<TR>(Expression<System.Func<T, TR>> selector);
+        TR Min<TR>(Expression<System.Func<T, TR>> selector);
         #endregion
     }
 
@@ -264,10 +269,10 @@ namespace Linq2Oracle
         readonly IEnumerable<SqlBoolean> _having;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        readonly Lazy<GroupingAggregate> _aggregate;
+        readonly System.Lazy<GroupingAggregate> _aggregate;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<SqlBoolean> having)
+        internal AggregateResult(System.Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<SqlBoolean> having)
         {
             _context = context;
             _having = having;
@@ -284,7 +289,7 @@ namespace Linq2Oracle
 
         IEnumerable<T> ReadProjectionResult(OracleDataReader reader)
         {
-            var projector = (Func<OracleDataReader, T>)_aggregate.Value.ValueSelector;
+            var projector = (System.Func<OracleDataReader, T>)_aggregate.Value.ValueSelector;
             while (reader.Read())
                 yield return projector(reader);
         }

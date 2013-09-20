@@ -1,6 +1,5 @@
-using System.Collections.Generic;
 using Oracle.ManagedDataAccess.Client;
-using System.Text;
+using System.Collections.Generic;
 
 namespace Linq2Oracle
 {
@@ -15,5 +14,6 @@ namespace Linq2Oracle
 
     public interface IQueryContext<T> : IQueryContext, IEnumerable<T>
     {
+        //IEnumerable<T> AsEnumerable();
     }
 }

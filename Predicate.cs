@@ -1,7 +1,4 @@
-using Oracle.ManagedDataAccess.Client;
 using System;
-using System.Text;
-using System.Collections.Generic;
 
 namespace Linq2Oracle.Expressions
 {

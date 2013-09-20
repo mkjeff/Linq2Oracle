@@ -1,38 +1,34 @@
 ﻿using Oracle.ManagedDataAccess.Client;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Linq2Oracle.Expressions
 {
-    interface ISqlExpressionBuilder
-    {
-        Action<SqlContext> Build { get; set; }
-        OracleDbType DbType { get; set; }
-    }
+    using SqlGenerator = Action<SqlContext>;
 
     static class SqlExpressionBuilder
     {
-        public static T Init<T>(this T column, OracleDbType dbType, Action<SqlContext> sqlGenerator) where T : ISqlExpressionBuilder
+        public static T Init<T>(this T column, Action<SqlContext> sqlGenerator) where T : IDbExpression
         {
-            column.Build = sqlGenerator;
+            column.Setup(sqlGenerator);
             return column;
         }
 
-        public static SqlBoolean IsEquals(this IDbExpression a, IDbExpression b)
-        {          
+        public static SqlBoolean IsEquals<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
+        {
             if (a == null)
                 return b.IsNull();
 
             if (b == null)
                 return a.IsNull();
 
-            return new SqlBoolean(sql => sql.Append(a).Append(" = ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, "=", b));
         }
 
-        public static SqlBoolean NotEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean NotEquals<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
             if (a == null)
                 return b.IsNotNull();
@@ -40,52 +36,111 @@ namespace Linq2Oracle.Expressions
             if (b == null)
                 return a.IsNotNull();
 
-            return new SqlBoolean(sql => sql.Append(a).Append(" <> ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, "<>", b));
         }
 
-        public static SqlBoolean IsNull(this IDbExpression a)
+        public static SqlBoolean IsNull<T>(this T a) where T : IDbExpression
         {
             return new SqlBoolean(sql => sql.Append(a).Append(" IS NULL"));
         }
 
-        public static SqlBoolean IsNotNull(this IDbExpression a)
+        public static SqlBoolean IsNotNull<T>(this T a) where T : IDbExpression
         {
             return new SqlBoolean(sql => sql.Append(a).Append(" IS NOT NULL"));
         }
 
-        public static SqlBoolean GreatThan(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean GreatThan<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new SqlBoolean(sql => sql.Append(a).Append(" > ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, ">", b));
         }
 
-        public static SqlBoolean GreatThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean GreatThanOrEquals<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new SqlBoolean(sql => sql.Append(a).Append(" >= ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, ">=", b));
         }
 
-        public static SqlBoolean LessThan(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean LessThan<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new SqlBoolean(sql => sql.Append(a).Append(" < ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, "<", b));
         }
 
-        public static SqlBoolean LessThanOrEquals(this IDbExpression a, IDbExpression b)
+        public static SqlBoolean LessThanOrEquals<T1, T2>(this T1 a, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
             if (a == null && b == null)
                 throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
-            return new SqlBoolean(sql => sql.Append(a).Append(" <= ").Append(b));
+            return new SqlBoolean(Operation.Binary(a, "<=", b));
         }
+    }
 
-        public static SqlBoolean Like(this String a, string pattern)
+    static class Operation
+    {
+        public static SqlGenerator Binary<T1,T2>(T1 a, string binaryOperator, T2 b)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
         {
-            return new SqlBoolean(sql => sql.Append(a).Append(" LIKE ").AppendParam(pattern));
+            return sql => sql.Append(a).Append(' ').Append(binaryOperator).Append(' ').Append(b);
         }
 
-         
+        public static SqlGenerator Unary<T>(string unaryOperator, T a)
+            where T : IDbExpression
+        {
+            return sql => sql.Append(unaryOperator).Append('(').Append(a).Append(')');
+        }
+    }
+
+    static class Function
+    {
+        public static SqlGenerator Call<T>(string function, T param1)
+            where T : IDbExpression
+        {
+            return sql => sql.Append(function).Append('(').Append(param1).Append(')');
+        }
+
+        public static SqlGenerator Call<T1, T2>(string function, T1 param1, T2 param2)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
+        {
+            return sql => sql.Append(function).Append('(').Append(param1).Append(',').Append(param2).Append(')');
+        }
+
+        public static SqlGenerator Call(string function, SqlGenerator sqlGen, int param)
+        {
+            return sql => sql.Append(function).Append('(').Append(sqlGen).Append(',').Append(param).Append(')');
+        }
+
+        public static SqlGenerator Call<T1, T2, T3>(string function, T1 param1, T2 param2, T3 param3)
+            where T1 : IDbExpression
+            where T2 : IDbExpression
+            where T3 : IDbExpression
+        {
+            return sql => sql.Append(function).Append('(').Append(param1).Append(',').Append(param2).Append(',').Append(param3).Append(')');
+        }
+    }
+
+    static class SqlParameter
+    {
+        public static SqlGenerator Create<T>(T value)
+        {
+            return sql => sql.AppendParam(value);
+        }
+
+        public static SqlGenerator Create<T>(T value, OracleDbType dbType)
+        {
+            return sql => sql.AppendParam(dbType, value);
+        }
     }
 }

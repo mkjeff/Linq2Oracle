@@ -1,9 +1,5 @@
 using Oracle.ManagedDataAccess.Client;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Linq2Oracle;
 
 namespace Linq2Oracle.Expressions
 {
@@ -12,93 +8,74 @@ namespace Linq2Oracle.Expressions
     public interface IDbExpression
     {
         void Build(SqlContext sql);
-        OracleDbType DbType { get; }
+        void Setup(SqlGenerator sqlGen);
     }
 
     public interface IDbExpression<T> : IDbExpression { }
 
-    sealed class DbExpression : IDbExpression {
-        readonly SqlGenerator _generator;
-        internal DbExpression(SqlGenerator generator)
-        {
-            _generator = generator;
-        }
-        public void Build(SqlContext sql)
-        {
-            _generator(sql);
-        }
+    public interface IDbNumber : IDbExpression { }
 
-        public OracleDbType DbType
-        {
-            get { throw new NotImplementedException(); }
-        }
-    }
+    public interface INullableExpression<T> : IDbExpression<T?> where T : struct { }
 
-    public sealed class String : IDbExpression<string>, ISqlExpressionBuilder
+    #region String
+    public struct DbString : IDbExpression<string>
     {
-        #region Operators
-        public static implicit operator String(string value)
+        readonly Func<string> _valueProvider;
+        internal DbString(Func<string> valueProvider, Action<SqlContext> sqlBuilder)
+        {
+            _valueProvider = valueProvider;
+            _sqlBuilder = sqlBuilder;
+        }
+        #region Conversion Operators
+        public static implicit operator string(DbString @this)
+        {
+            return @this._valueProvider();
+        }
+        public static implicit operator DbString(string value)
         {
             if (value == null)
                 return null;
 
-            return new String().Init(OracleDbType.Varchar2, sql => sql.AppendParam(value));
+            return new DbString().Init(SqlParameter.Create(value));
         }
-
-        public static SqlBoolean operator ==(String a, String b)
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(DbString a, DbString b)
         {
             return a.IsEquals(b);
         }
 
-        public static SqlBoolean operator !=(String a, String b)
+        public static SqlBoolean operator !=(DbString a, DbString b)
         {
             return a.NotEquals(b);
         }
 
-        public static SqlBoolean operator >(String a, String b)
+        public static SqlBoolean operator >(DbString a, DbString b)
         {
             return a.GreatThan(b);
         }
 
-        public static SqlBoolean operator >=(String a, String b)
+        public static SqlBoolean operator >=(DbString a, DbString b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static SqlBoolean operator <(String a, String b)
+        public static SqlBoolean operator <(DbString a, DbString b)
         {
             return a.LessThan(b);
         }
 
-        public static SqlBoolean operator <=(String a, String b)
+        public static SqlBoolean operator <=(DbString a, DbString b)
         {
             return a.LessThanOrEquals(b);
         }
-
-        public static String operator +(String a, String b)
+        #endregion
+        #region Custom Operator
+        public static DbString operator +(DbString a, DbString b)
         {
-            return new String().Init(OracleDbType.Varchar2, sql => sql.Append(a).Append(" || ").Append(b));
+            return new DbString().Init(Operation.Binary(a, "||", b));
         }
         #endregion
-
-        #region Helper Methods
-        String SubString(int startIndex, int? length = null)
-        {
-            return new String().Init(OracleDbType.Varchar2, sql =>
-            {
-                sql.Append("SUBSTR(").Append(this).Append(',').Append(startIndex + 1);
-                if (length != null)
-                    sql.Append(',').Append(length.Value);
-                sql.Append(')');
-            });
-        }
-
-        String UnaryFunction(string functionName)
-        {
-            return new String().Init(OracleDbType.Varchar2, sql => sql.Append(functionName).Append('(').Append(this).Append(')'));
-        }
-        #endregion
-
         #region Methods
         public SqlBoolean IsNullOrEmpty()
         {
@@ -125,257 +102,1108 @@ namespace Linq2Oracle.Expressions
             return this.Like("%" + str + "%");
         }
 
-        // TO DO: SQL version compare
-        //public Predicate StartsWith(String str)
-        //{
-        //    return this.Like(str + "%");
-        //}
-
-        //public Predicate EndsWith(String str)
-        //{
-        //    return this.Like("%" + str);
-        //}
-
-        //public Predicate Contains(String str)
-        //{
-        //    return this.Like("%" + str + "%");
-        //}
-
-        public String Substring(int startIndex, int length)
+        public SqlBoolean StartsWith(DbString str)
         {
-            return Substring(startIndex, length);
+            return this.Like(str + "%");
         }
 
-        public String Substring(int startIndex)
+        public SqlBoolean EndsWith(DbString str)
         {
-            return Substring(startIndex);
+            return this.Like("%" + str);
         }
 
-        public String Trim()
+        public SqlBoolean Contains(DbString str)
         {
-            return UnaryFunction("TRIM");
+            return this.Like("%" + str + "%");
         }
 
-        public String TrimStart()
+        public SqlBoolean Like(DbString pattern)
         {
-            return UnaryFunction("LTRIM");
+            var @this = this;
+            return new SqlBoolean(Operation.Binary(this, " LIKE ", pattern));
         }
 
-        public String TrimEnd()
+        public SqlBoolean Equals(DbString other)
         {
-            return UnaryFunction("RTRIM");
+            return this == other;
         }
 
-        public String ToLower()
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
         {
-            return UnaryFunction("LOWER");
+            return obj is DbString ? this == (DbString)obj : new SqlBoolean();
         }
 
-        public String ToUpper()
+        public DbString Substring(int startIndex, int length)
         {
-            return UnaryFunction("UPPER");
+            return new DbString().Init(Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1), (DbNumber)length));
+        }
+
+        public DbString Substring(DbNumber startIndex, DbNumber length)
+        {
+            return new DbString().Init(Function.Call("SUBSTR", this, startIndex, length));
+        }
+
+        public DbString Substring(int startIndex)
+        {
+            return new DbString().Init(Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1)));
+        }
+
+        public DbString Substring(DbNumber startIndex)
+        {
+            return new DbString().Init(Function.Call("SUBSTR", this, startIndex));
+        }
+
+        public DbString Trim()
+        {
+            return new DbString().Init(Function.Call("TRIM", this));
+        }
+
+        public DbString TrimStart()
+        {
+            return new DbString().Init(Function.Call("LTRIM", this));
+        }
+
+        public DbString TrimEnd()
+        {
+            return new DbString().Init(Function.Call("RTRIM", this));
+        }
+
+        public DbString ToLower()
+        {
+            return new DbString().Init(Function.Call("LOWER", this));
+        }
+
+        public DbString ToUpper()
+        {
+            return new DbString().Init(Function.Call("UPPER", this));
         }
         #endregion
-
         #region Properties
-        public Number<int> Length
+        public DbNumber Length
         {
             get
             {
-                return new Number<int>().Init(OracleDbType.Int32, sql => sql.Append("LENGTH(").Append(this).Append(')'));
+                return new DbNumber().Init(Function.Call("LENGTH", this));
+            }
+        }
+
+        public DbChar this[int index]
+        {
+            get
+            {
+                return new DbChar().Init(Function.Call("SUBSTR", this, (DbNumber)(index + 1), (DbNumber)1));
+            }
+        }
+
+        public DbChar this[DbNumber index]
+        {
+            get
+            {
+                return new DbChar().Init(Function.Call("SUBSTR", this, index, (DbNumber)1));
             }
         }
         #endregion
-
-        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
-
+        #region IDbExpression
         void IDbExpression.Build(SqlContext sql)
         {
-            ((ISqlExpressionBuilder)this).Build(sql);
+            _sqlBuilder(sql);
         }
 
-        public OracleDbType DbType { get; set; }
-    }
+        SqlGenerator _sqlBuilder;
 
-    public interface INullable<T> : IDbExpression<T> where T : struct { }
-
-    public class Nullable<TExpr, T> : INullable<T>, ISqlExpressionBuilder
-        where TExpr : struct,IDbExpression<T>
-        where T : struct
-    {
-        #region Operators
-        public static implicit operator Nullable<TExpr, T>(T? value)
+        void IDbExpression.Setup(SqlGenerator sqlGen)
         {
-            if (!value.HasValue)
-                return null;
-            return new Nullable<TExpr, T>();
+            _sqlBuilder = sqlGen;
         }
+        #endregion
+    }
+    #endregion
 
-        public static SqlBoolean operator ==(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+    #region Char
+    public struct DbChar : IDbExpression<char>
+    {
+        #region Conversion Operator
+        public static implicit operator DbChar(char value)
+        {
+            return new DbChar().Init(SqlParameter.Create(value));
+        }
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(DbChar a, DbChar b)
         {
             return a.IsEquals(b);
         }
 
-        public static SqlBoolean operator !=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator !=(DbChar a, DbChar b)
         {
             return a.NotEquals(b);
         }
 
-        public static SqlBoolean operator >(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator >(DbChar a, DbChar b)
         {
             return a.GreatThan(b);
         }
 
-        public static SqlBoolean operator >=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator >=(DbChar a, DbChar b)
         {
             return a.GreatThanOrEquals(b);
         }
 
-        public static SqlBoolean operator <(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator <(DbChar a, DbChar b)
         {
             return a.LessThan(b);
         }
 
-        public static SqlBoolean operator <=(Nullable<TExpr, T> a, Nullable<TExpr, T> b)
+        public static SqlBoolean operator <=(DbChar a, DbChar b)
         {
             return a.LessThanOrEquals(b);
         }
         #endregion
-
         #region Methods
-        public TExpr GetValueOrDefault(T defaultValue)
+        public SqlBoolean Equals(DbChar other)
         {
-            var result = new TExpr();
-            ((ISqlExpressionBuilder)result).Init(result.DbType, sql =>
-                sql.Append("NVL(").Append(this).Append(',').AppendParam(defaultValue).Append(')'));
-            return result;
+            return this == other;
+        }
+
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
+        {
+            return obj is DbChar ? this == (DbChar)obj : new SqlBoolean();
         }
         #endregion
-
-        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
-
+        #region IDbExpression
         void IDbExpression.Build(SqlContext sql)
         {
-            ((ISqlExpressionBuilder)this).Build(sql);
+            _sqlBuilder(sql);
         }
 
-        public OracleDbType DbType { get; set; }
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
     }
+    #endregion
 
-    public struct Enum<T> : IDbExpression<T>, ISqlExpressionBuilder where T : struct
+    #region Enum
+    public struct Enum<T> : IDbExpression<T> where T : struct
     {
-        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
-
-        void IDbExpression.Build(SqlContext tableAlias)
+        #region Conversion Operator
+        public static implicit operator Enum<T>(T value)
         {
-            ((ISqlExpressionBuilder)this).Build(tableAlias);
+            return new Enum<T>().Init(SqlParameter.Create(value, OracleDbType.Varchar2));
         }
-
-        public OracleDbType DbType { get; set; }
-    }
-
-    public struct DateTime : IDbExpression<System.DateTime>, ISqlExpressionBuilder
-    {
-        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
-
-        void IDbExpression.Build(SqlContext tableAlias)
-        {
-            ((ISqlExpressionBuilder)this).Build(tableAlias);
-        }
-
-        public OracleDbType DbType { get; set; }
-    }
-
-    public struct Number<T> : IDbExpression<T>, ISqlExpressionBuilder where T : struct
-    {
-        #region Operators
-        public static implicit operator Number<T>(T value)
-        {
-            return new Number<T>().Init(OracleDbType.Decimal, sql => sql.AppendParam(value));
-        }
-
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator Number<T>(T? value)
-        {
-            // C# / Visual Studio bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
-            if (!value.HasValue)
-                return null;
-            return new Number<T>();
-        }
-
-        public static explicit operator NullableNumber<T>(Number<T> @this)
-        {
-            return new NullableNumber<T>();
-        }
-
-        public static SqlBoolean operator ==(Number<T> a, Number<T> b)
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(Enum<T> a, Enum<T> b)
         {
             return a.IsEquals(b);
         }
 
-        public static SqlBoolean operator !=(Number<T> a, Number<T> b)
+        public static SqlBoolean operator !=(Enum<T> a, Enum<T> b)
         {
             return a.NotEquals(b);
         }
 
-        public static Number<T> operator +(Number<T> a, Number<T> b)
+        //public static SqlBoolean operator >(Enum<T> a, Enum<T> b)
+        //{
+        //    return a.GreatThan(b);
+        //}
+
+        //public static SqlBoolean operator >=(Enum<T> a, Enum<T> b)
+        //{
+        //    return a.GreatThanOrEquals(b);
+        //}
+
+        //public static SqlBoolean operator <(Enum<T> a, Enum<T> b)
+        //{
+        //    return a.LessThan(b);
+        //}
+
+        //public static SqlBoolean operator <=(Enum<T> a, Enum<T> b)
+        //{
+        //    return a.LessThanOrEquals(b);
+        //}
+        #endregion
+        #region Methods
+        public SqlBoolean Equals(Enum<T> other)
         {
-            return BuildBinaryExpression(a, b, '+');
+            return this == other;
         }
 
-        public static Number<T> operator -(Number<T> a, Number<T> b)
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
         {
-            return BuildBinaryExpression(a, b, '-');
-        }
-
-        public static Number<T> operator *(Number<T> a, Number<T> b)
-        {
-            return BuildBinaryExpression(a, b, '*');
-        }
-
-        public static Number<T> operator /(Number<T> a, Number<T> b)
-        {
-            return BuildBinaryExpression(a, b, '/');
-        }
-
-        private static Number<T> BuildBinaryExpression(Number<T> a, Number<T> b, char binaryOperator)
-        {
-            return new Number<T>().Init(a.DbType,
-                sql => sql.Append('(').Append(a).Append(' ').Append(binaryOperator).Append(' ').Append(b).Append(')'));
+            return obj is Enum<T> ? this == (Enum<T>)obj : new SqlBoolean();
         }
         #endregion
-
-        SqlGenerator ISqlExpressionBuilder.Build { get; set; }
-
+        #region IDbExpression
         void IDbExpression.Build(SqlContext sql)
         {
-            ((ISqlExpressionBuilder)this).Build(sql);
+            _sqlBuilder(sql);
         }
 
-        public OracleDbType DbType { get; set; }
-    }
+        SqlGenerator _sqlBuilder;
 
-    public sealed class NullableEnum<T> : Nullable<Enum<T>, T> where T : struct
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region DateTime
+    public struct DbDateTime : IDbExpression<System.DateTime>
     {
-        //public static implicit operator NullableEnum<T>(T? value)
-        //{
-        //    if (!value.HasValue)
-        //        return null;
-        //    return new NullableEnum<T>();
-        //}
-    }
+        #region Conversion Operator
+        public static implicit operator DbDateTime(System.DateTime value)
+        {
+            return new DbDateTime().Init(SqlParameter.Create(value));
+        }
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(DbDateTime a, DbDateTime b)
+        {
+            return a.IsEquals(b);
+        }
 
-    public sealed class NullableNumber<T> : Nullable<Number<T>, T> where T : struct
+        public static SqlBoolean operator !=(DbDateTime a, DbDateTime b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(DbDateTime a, DbDateTime b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(DbDateTime a, DbDateTime b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(DbDateTime a, DbDateTime b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(DbDateTime a, DbDateTime b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region Custom Operator
+        public static DbTimeSpan operator -(DbDateTime a, DbDateTime b)
+        {
+            return new DbTimeSpan().Init(Operation.Binary(a, "-", b));
+        }
+        #endregion
+        #region Methods
+        public SqlBoolean Equals(DbDateTime other)
+        {
+            return this == other;
+        }
+
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
+        {
+            return obj is DbDateTime ? this == (DbDateTime)obj : new SqlBoolean();
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region TimeSpan
+    public struct DbTimeSpan : IDbExpression<System.TimeSpan>
     {
-        //public static implicit operator NullableNumber<T>(T? value)
+        #region Conversion Operator
+        public static implicit operator DbTimeSpan(System.TimeSpan value)
+        {
+            return new DbTimeSpan().Init(SqlParameter.Create(value));
+        }
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(DbTimeSpan a, DbTimeSpan b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region Custom Operator
+        //[Obsolete("Oracle IntervalDS don't support.")]
+        //public static Decimal operator +(Decimal a)
         //{
-        //    if (!value.HasValue)
-        //        return null;
-        //    return new NullableNumber<T>();
+        //    return new Decimal().Init(OracleDbType.Decimal, Operation.Unary("+", a));
         //}
+
+        //[Obsolete("Oracle IntervalDS don't support.")]
+        //public static Decimal operator -(Decimal a)
+        //{
+        //    return new Decimal().Init(OracleDbType.Decimal, Operation.Unary("-", a));
+        //}
+
+        public static DbTimeSpan operator +(DbTimeSpan a, DbTimeSpan b)
+        {
+            return new DbTimeSpan().Init(Operation.Binary(a, "+", b));
+        }
+
+        public static DbTimeSpan operator -(DbTimeSpan a, DbTimeSpan b)
+        {
+            return new DbTimeSpan().Init(Operation.Binary(a, "-", b));
+        }
+        #endregion
+        #region Methods
+        public SqlBoolean Equals(DbTimeSpan other)
+        {
+            return this == other;
+        }
+
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
+        {
+            return obj is DbTimeSpan ? this == (DbTimeSpan)obj : new SqlBoolean();
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
     }
+    #endregion
 
-    public sealed class NullableDateTime : Nullable<DateTime, System.DateTime> { }
+    #region Number
+    public struct DbNumber : IDbNumber,
+        IDbExpression<short>,
+        IDbExpression<int>,
+        IDbExpression<long>,
+        IDbExpression<float>,
+        IDbExpression<double>,
+        IDbExpression<decimal>
+    {
+        readonly Func<decimal> _valueProvider;
+        internal DbNumber(Func<decimal> valueProvider, Action<SqlContext> sqlBuilder)
+        {
+            _valueProvider = valueProvider;
+            _sqlBuilder = sqlBuilder;
+        }
+        #region Conversion Operator
 
+        public static implicit operator short(DbNumber @this)
+        {
+            return (short)@this._valueProvider();
+        }
 
+        public static implicit operator int(DbNumber @this)
+        {
+            return (int)@this._valueProvider();
+        }
+
+        public static implicit operator long(DbNumber @this)
+        {
+            return (long)@this._valueProvider();
+        }
+
+        public static implicit operator float(DbNumber @this)
+        {
+            return (float)@this._valueProvider();
+        }
+
+        public static implicit operator double(DbNumber @this)
+        {
+            return (double)@this._valueProvider();
+        }
+
+        public static implicit operator decimal(DbNumber @this)
+        {
+            return @this._valueProvider();
+        }
+
+        public static implicit operator DbNumber(short value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        public static implicit operator DbNumber(int value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        public static implicit operator DbNumber(long value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        public static implicit operator DbNumber(float value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        public static implicit operator DbNumber(double value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        public static implicit operator DbNumber(decimal value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(short? value)
+        {
+            // C# / Visual Studio bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(int? value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(long? value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(float? value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(double? value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+
+        [Obsolete("This is an unsafe conversion", false)]
+        public static implicit operator DbNumber(decimal? value)
+        {
+            return new DbNumber().Init(SqlParameter.Create(value));
+        }
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(DbNumber a, DbNumber b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(DbNumber a, DbNumber b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(DbNumber a, DbNumber b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(DbNumber a, DbNumber b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(DbNumber a, DbNumber b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(DbNumber a, DbNumber b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region Custom Operator
+        public static DbNumber operator +(DbNumber a)
+        {
+            return new DbNumber().Init(Operation.Unary("+", a));
+        }
+
+        public static DbNumber operator -(DbNumber a)
+        {
+            return new DbNumber().Init(Operation.Unary("-", a));
+        }
+
+        public static DbNumber operator +(DbNumber a, DbNumber b)
+        {
+            return new DbNumber().Init(Operation.Binary(a, "+", b));
+        }
+
+        public static DbNumber operator -(DbNumber a, DbNumber b)
+        {
+            return new DbNumber().Init(Operation.Binary(a, "-", b));
+        }
+
+        public static DbNumber operator *(DbNumber a, DbNumber b)
+        {
+            return new DbNumber().Init(Operation.Binary(a, "-", b));
+        }
+
+        public static DbNumber operator /(DbNumber a, DbNumber b)
+        {
+            return new DbNumber().Init(Operation.Binary(a, "-", b));
+        }
+
+        public static DbNumber operator %(DbNumber a, DbNumber b)
+        {
+            return new DbNumber().Init(Function.Call("MOD", a, b));
+        }
+        #endregion
+        #region Methods
+        public SqlBoolean Equals(DbNumber other)
+        {
+            return this == other;
+        }
+
+        [Obsolete("Invalid SQL expression")]
+        public new SqlBoolean Equals(object obj)
+        {
+            return obj is DbNumber ? this == (DbNumber)obj : new SqlBoolean();
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region Char?
+    public struct NullableDbChar : INullableExpression<char>
+    {
+        public DbChar GetValueOrDefault(DbChar defaultValue)
+        {
+            return new DbChar().Init(Function.Call("NVL", this, defaultValue));
+        }
+
+        public static implicit operator NullableDbChar(char? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbChar().Init(sql => sql.AppendParam(value));
+        }
+
+        #region Comparision Operators
+        public static SqlBoolean operator ==(NullableDbChar a, NullableDbChar b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(NullableDbChar a, NullableDbChar b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(NullableDbChar a, NullableDbChar b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(NullableDbChar a, NullableDbChar b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(NullableDbChar a, NullableDbChar b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(NullableDbChar a, NullableDbChar b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region Enum?
+    public struct NullableEnum<T> :  INullableExpression<T> where T : struct
+    {
+        public Enum<T> GetValueOrDefault(Enum<T> defaultValue)
+        {
+            return new Enum<T>().Init(Function.Call("NVL", this, defaultValue));
+        }
+
+        public static implicit operator NullableEnum<T>(T? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableEnum<T>().Init(sql => sql.AppendParam(OracleDbType.Varchar2, value.Value));
+        }
+        #region Comparision Operators
+        public static SqlBoolean operator ==(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(NullableEnum<T> a, NullableEnum<T> b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region DateTime?
+    public struct NullableDbDateTime : INullableExpression<System.DateTime>
+    {
+        readonly Func<System.DateTime?> _valueProvider;
+
+        internal NullableDbDateTime(Func<System.DateTime?> valueProvider, Action<SqlContext> sqlBuilder)
+        {
+            _valueProvider = valueProvider;
+            _sqlBuilder = sqlBuilder;
+        }
+
+        public DbDateTime GetValueOrDefault(DbDateTime defaultValue)
+        {
+            return new DbDateTime().Init(Function.Call("NVL", this, defaultValue));
+        }
+
+        public static implicit operator System.DateTime?(NullableDbDateTime @this)
+        {
+            return @this._valueProvider();
+        }
+
+        public static implicit operator NullableDbDateTime(DbDateTime? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbDateTime().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static NullableDbTimeSpan operator -(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return new NullableDbTimeSpan().Init(Operation.Binary(a, " - ", b));
+        }
+
+        #region Comparision Operators
+        public static SqlBoolean operator ==(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(NullableDbDateTime a, NullableDbDateTime b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region TimeSpan?
+    public struct NullableDbTimeSpan : INullableExpression<System.TimeSpan>
+    {
+        readonly Func<System.TimeSpan?> _valueProvider;
+
+        internal NullableDbTimeSpan(Func<System.TimeSpan?> valueProvider, Action<SqlContext> sqlBuilder)
+        {
+            _valueProvider = valueProvider;
+            _sqlBuilder = sqlBuilder;
+        }
+
+        public static implicit operator System.TimeSpan?(NullableDbTimeSpan @this)
+        {
+            return @this._valueProvider();
+        }
+
+        public static implicit operator NullableDbTimeSpan(DbTimeSpan? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbTimeSpan().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public DbTimeSpan GetValueOrDefault(DbTimeSpan defaultValue)
+        {
+            return new DbTimeSpan().Init(Function.Call("NVL", this, defaultValue));
+        }
+
+        #region Comparision Operators
+        public static SqlBoolean operator ==(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(NullableDbTimeSpan a, NullableDbTimeSpan b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    #region Number?
+    public struct NullableDbNumber : IDbNumber,
+        INullableExpression<short>,
+        INullableExpression<int>,
+        INullableExpression<long>,
+        INullableExpression<float>,
+        INullableExpression<double>,
+        INullableExpression<decimal>
+    {
+        readonly Func<decimal?> _valueProvider;
+
+        internal NullableDbNumber(Func<decimal?> valueProvider, Action<SqlContext> sqlBuilder)
+        {
+            _valueProvider = valueProvider;
+            _sqlBuilder = sqlBuilder;
+        }
+
+        public DbNumber GetValueOrDefault(DbNumber defaultValue)
+        {
+            return new DbNumber().Init(Function.Call("NVL", this, defaultValue));
+        }
+
+        #region Conversion Operator
+        public static implicit operator short?(NullableDbNumber @this)
+        {
+            return (short?)@this._valueProvider();
+        }
+
+        public static implicit operator int?(NullableDbNumber @this)
+        {
+            return (int?)@this._valueProvider();
+        }
+
+        public static implicit operator long?(NullableDbNumber @this)
+        {
+            return (long?)@this._valueProvider();
+        }
+
+        public static implicit operator float?(NullableDbNumber @this)
+        {
+            return (float?)@this._valueProvider();
+        }
+
+        public static implicit operator double?(NullableDbNumber @this)
+        {
+            return (double?)@this._valueProvider();
+        }
+
+        public static implicit operator decimal?(NullableDbNumber @this)
+        {
+            return @this._valueProvider();
+        }
+
+        public static implicit operator NullableDbNumber(DbNumber value)
+        {
+            return new NullableDbNumber().Init(sql => sql.Append(value));
+        }
+
+        public static implicit operator NullableDbNumber(short? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static implicit operator NullableDbNumber(int? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static implicit operator NullableDbNumber(long? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static implicit operator NullableDbNumber(float? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static implicit operator NullableDbNumber(double? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+
+        public static implicit operator NullableDbNumber(decimal? value)
+        {
+            if (!value.HasValue)
+                return null;
+            return new NullableDbNumber().Init(sql => sql.AppendParam(value.Value));
+        }
+        #endregion
+        #region Comparision Operator
+        public static SqlBoolean operator ==(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.IsEquals(b);
+        }
+
+        public static SqlBoolean operator !=(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.NotEquals(b);
+        }
+
+        public static SqlBoolean operator >(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.GreatThan(b);
+        }
+
+        public static SqlBoolean operator >=(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.GreatThanOrEquals(b);
+        }
+
+        public static SqlBoolean operator <(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.LessThan(b);
+        }
+
+        public static SqlBoolean operator <=(NullableDbNumber a, NullableDbNumber b)
+        {
+            return a.LessThanOrEquals(b);
+        }
+        #endregion
+        #region Custom Operator
+        public static NullableDbNumber operator +(NullableDbNumber a)
+        {
+            return new NullableDbNumber().Init(Operation.Unary("+", a));
+        }
+
+        public static NullableDbNumber operator -(NullableDbNumber a)
+        {
+            return new NullableDbNumber().Init(Operation.Unary("-", a));
+        }
+
+        public static NullableDbNumber operator +(NullableDbNumber a, NullableDbNumber b)
+        {
+            return new NullableDbNumber().Init(Operation.Binary(a, "+", b));
+        }
+
+        public static NullableDbNumber operator -(NullableDbNumber a, NullableDbNumber b)
+        {
+            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+        }
+
+        public static NullableDbNumber operator *(NullableDbNumber a, NullableDbNumber b)
+        {
+            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+        }
+
+        public static NullableDbNumber operator /(NullableDbNumber a, NullableDbNumber b)
+        {
+            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+        }
+        #endregion
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        SqlGenerator _sqlBuilder;
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+            _sqlBuilder = sqlGen;
+        }
+        #endregion
+    }
+    #endregion
+
+    sealed class ColumnExpression : IDbExpression
+    {
+        readonly SqlGenerator _sqlBuilder;
+
+        internal ColumnExpression(IQueryContext table, string columnName)
+        {
+            _sqlBuilder = sql => sql.Append(sql.GetAlias(table)).Append(".").Append(columnName);
+        }
+
+        #region IDbExpression
+        void IDbExpression.Build(SqlContext sql)
+        {
+            _sqlBuilder(sql);
+        }
+
+        void IDbExpression.Setup(SqlGenerator sqlGen)
+        {
+        }
+        #endregion
+    }
 }

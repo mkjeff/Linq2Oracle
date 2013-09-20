@@ -174,7 +174,7 @@ namespace Linq2Oracle
                     // [ORDER BY]
                     sql.Append(select).Append(" FROM (SELECT a.* ,ROWNUM AS rn FROM (");
                     _genSql(sql, "SELECT t0.*", _closure);
-                    sql.Append(")a )t0 WHERE t0.rn > :").AppendParam(count);
+                    sql.Append(")a )t0 WHERE t0.rn > ").AppendParam(count);
 
                     if (c.Filters.Any())
                         foreach (var filter in c.Filters)
@@ -203,7 +203,7 @@ namespace Linq2Oracle
                         // ORDER BY ..
                         sql.Append(select).Append(" FROM (SELECT * FROM (");
                         _genSql(sql, "SELECT t0.*", _closure);
-                        sql.Append(") t0 WHERE ROWNUM <= :").AppendParam(count)
+                        sql.Append(") t0 WHERE ROWNUM <= ").AppendParam(count)
                             .Append(")t0")
                             .AppendWhere(c.Filters)
                             .AppendOrder(c.Orderby);
@@ -215,7 +215,7 @@ namespace Linq2Oracle
                         // WHERE ROWNUM <= [count]
                         sql.Append(select).Append(" FROM (");
                         _genSql(sql, "SELECT t0.*", _closure);
-                        sql.Append(") t0 WHERE ROWNUM <= :").AppendParam(count);
+                        sql.Append(") t0 WHERE ROWNUM <= ").AppendParam(count);
                     }
                     //sql.MappingAlias(i, c.Tables.First());
                 }, ColumnDefine);
@@ -242,8 +242,8 @@ namespace Linq2Oracle
                     // ORDER BY ..
                     sql.Append(select).Append(" FROM (SELECT * FROM (SELECT a.* , ROWNUM AS rn FROM (");
                     _genSql(sql, "SELECT t0.*", _closure);
-                    sql.Append(") a )t0 WHERE t0.rn > :").AppendParam(skip)
-                        .Append(" AND ROWNUM <= :").Append(pageSize)
+                    sql.Append(") a )t0 WHERE t0.rn > ").AppendParam(skip)
+                        .Append(" AND ROWNUM <= ").AppendParam(pageSize)
                         .Append(") t0")
                         .AppendWhere(c.Filters)
                         .AppendOrder(c.Orderby);
@@ -260,13 +260,13 @@ namespace Linq2Oracle
 
                     _genSql(sql, "SELECT t0.*", _closure);
 
-                    sql.Append(") a ) t0 WHERE t0.rn > :").AppendParam(skip)
-                        .Append(" AND ROWNUM <= :").Append(pageSize);
+                    sql.Append(") a ) t0 WHERE t0.rn > ").AppendParam(skip)
+                        .Append(" AND ROWNUM <= ").AppendParam(pageSize);
                 }
             }, ColumnDefine);
         }
 
-        public QueryContext<C, T, TResult> TakeBySum<NUM>(Func<C, Number<NUM>> sumBy, Func<C, IDbExpression> partitionBy, long sum) where NUM : struct
+        public QueryContext<C, T, TResult> TakeBySum<NUM>(Func<C, IDbNumber> sumBy, Func<C, IDbExpression> partitionBy, long sum) where NUM : struct
         {
             if (sum < 0)
                 return this;
@@ -294,7 +294,7 @@ namespace Linq2Oracle
 
                     _genSql(sql, string.Empty, _closure);
 
-                    sql.Append(") t0 WHERE t0.accSum <= :").AppendParam(sum)
+                    sql.Append(") t0 WHERE t0.accSum <= ").AppendParam(sum)
                         .Append(") t0")
                         .AppendWhere(c.Filters)
                         .AppendOrder(c.Orderby);
@@ -314,7 +314,7 @@ namespace Linq2Oracle
 
                     _genSql(sql, string.Empty, _closure);
 
-                    sql.Append(") t0 WHERE t0.accSum <= :").AppendParam(sum);
+                    sql.Append(") t0 WHERE t0.accSum <= ").AppendParam(sum);
                 }
             }, ColumnDefine);
         }
@@ -330,7 +330,7 @@ namespace Linq2Oracle
             var newList = _closure.Orderby.ToList();
             newList.AddRange(from order in keySelector(ColumnDefine)
                              where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-                             select new SortDescription(new DbExpression(sql => sql.Append(sql.GetAlias(this)).Append(".").Append(order.ColumnName)), order.Descending));
+                             select new SortDescription(new ColumnExpression(this, order.ColumnName), order.Descending));
 
             var newC = _closure;
             newC.Orderby = newList;
@@ -554,16 +554,17 @@ namespace Linq2Oracle
         }
         #endregion
         #region Max / Min / Sum / Average
-        #region Max / Min
+        #region Max / Min for String
         /// <summary>
         /// SQL MAX Function
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        string Max(Func<C, Linq2Oracle.Expressions.String> selector)
+        public Expressions.DbString Max(Func<C, Expressions.DbString> selector)
         {
-            return (string)_AggregateFunction(sql =>
-                sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
@@ -571,78 +572,138 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public string Min(Func<C, Linq2Oracle.Expressions.String> selector)
+        public Expressions.DbString Min(Func<C, Expressions.DbString> selector)
         {
-            return (string)_AggregateFunction(sql =>
-                sql.Append("MIN(").Append(selector(ColumnDefine)).Append(')'));
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+        #endregion
+        #region Max / Min for Number
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbNumber Max<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        {
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbNumber(
+                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
         /// SQL MAX Function
         /// </summary>
-        /// <typeparam name="TR"></typeparam>
+        /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        TR? Max<TR>(Func<C, IDbExpression<TR>> selector) where TR : struct
+        public NullableDbNumber Min<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
         {
-            return _MaxMin<TR>("MAX", selector);
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbNumber(
+                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+        #endregion
+        #region Max / Min for DateTime
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbDateTime Max(Func<C, Expressions.DbDateTime> selector) 
+        {
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbDateTime(() =>(System.DateTime?) _AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
-        /// SQL MIN Function
+        /// SQL MAX Function
         /// </summary>
-        /// <typeparam name="TR"></typeparam>
+        /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public TR? Min<TR>(Func<C, IDbExpression<TR>> selector) where TR : struct
+        public NullableDbDateTime Min(Func<C, Expressions.DbDateTime> selector)
         {
-            return _MaxMin<TR>("MIN", selector);
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
-        /// SQL MIN Function
+        /// SQL MAX Function
         /// </summary>
-        /// <typeparam name="TR"></typeparam>
+        /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public TR? Max<TR>(Func<C, INullable<TR>> selector)
-            where TR : struct
+        public NullableDbDateTime Max(Func<C, NullableDbDateTime> selector)
         {
-            return _MaxMin<TR>("MAX", selector);
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
-        /// SQL MIN Function
+        /// SQL MAX Function
         /// </summary>
-        /// <typeparam name="TR"></typeparam>
+        /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public TR? Min<TR>(Func<C, INullable<TR>> selector) where TR : struct
+        public NullableDbDateTime Min(Func<C, NullableDbDateTime> selector)
         {
-            return _MaxMin<TR>("MIN", selector);
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+        }
+        #endregion
+        #region Max / Min for TimeSpan
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbTimeSpan Max(Func<C, Expressions.DbTimeSpan> selector)
+        {
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
-        TR? _MaxMin<TR>(string function, Func<C, IDbExpression> selector) where TR : struct
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbTimeSpan Min(Func<C, Expressions.DbTimeSpan> selector)
         {
-            var value = _AggregateFunction(sql =>
-                sql.Append(function).Append('(').Append(selector(ColumnDefine)).Append(')'));
-            var retType = typeof(TR);
-            if (retType.IsEnum)
-            {
-                if (value != null)
-                    return (TR?)Enum.Parse(typeof(TR), (string)value);
-            }
-            else
-            {
-                if (value != null)
-                {
-                    if (value is decimal)
-                        return (TR?)Convert.ChangeType((decimal)value, typeof(TR));
-                    return (TR?)value;
-                }
-            }
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+        }
 
-            return null;
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbTimeSpan Max(Func<C, NullableDbTimeSpan> selector)
+        {
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+        }
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbTimeSpan Min(Func<C, NullableDbTimeSpan> selector)
+        {
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
         #endregion
         #region Sum
@@ -652,22 +713,12 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public decimal? Sum<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
+        public NullableDbNumber Sum<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
         {
-            return (decimal?)_AggregateFunction(sql =>
-                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
-        }
-
-        /// <summary>
-        /// SQL SUM Function
-        /// </summary>
-        /// <typeparam name="TNumber"></typeparam>
-        /// <param name="selector"></param>
-        /// <returns></returns>
-        public decimal? Sum<TNumber>(Func<C, INullable<TNumber>> selector) where TNumber : struct
-        {
-            return (decimal?)_AggregateFunction(sql =>
-                sql.Append("SUM(").Append(selector(ColumnDefine)).Append(')'));
+            var exprGen = Function.Call("SUM", selector(ColumnDefine));
+            return new NullableDbNumber(
+                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
         #region Average
@@ -677,22 +728,12 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public decimal? Average<TNumber>(Func<C, Number<TNumber>> selector) where TNumber : struct
+        public NullableDbNumber Average<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
         {
-            return (decimal?)_AggregateFunction(sql =>
-                sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)"));
-        }
-
-        /// <summary>
-        /// SQL AVG Function
-        /// </summary>
-        /// <typeparam name="TNumber"></typeparam>
-        /// <param name="selector"></param>
-        /// <returns></returns>
-        public decimal? Average<TNumber>(Func<C, INullable<TNumber>> selector) where TNumber : struct
-        {
-            return (decimal?)_AggregateFunction(sql =>
-                sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)"));
+            var exprGen = Function.Call("ROUND", Function.Call("AVG", selector(ColumnDefine)), 25);
+            return new NullableDbNumber(
+                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
 
@@ -703,54 +744,94 @@ namespace Linq2Oracle
             using (var cmd = _db.CreateCommand())
             {
                 var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
-                sql.Append("SELECT ");
-                exprGen(sql);// SQL Function
+                sql.Append("SELECT ").Append(exprGen);
                 _genSql(sql, string.Empty, cc);
                 cmd.CommandText = sql.ToString();
                 var result = _db.ExecuteScalar(cmd);
                 return result == DBNull.Value ? null : result;
             }
         }
+
+        Action<SqlContext> _AggregateFunctionExpression(Action<SqlContext> exprGen)
+        {
+            return sql =>
+            {
+                sql.Append('(');
+                var cc = _closure;
+                cc.Orderby = EmptyList<SortDescription>.Instance;
+                sql.Append("SELECT ").Append(exprGen);
+                _genSql(sql, string.Empty, cc);
+                sql.Append(')');
+            };
+        }
         #endregion
         #region Count / LongCount
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        decimal _Count()
+        DbNumber _Count()
         {
             var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             var selection = _projection.Value.SelectSql;
-            using (var cmd = _db.CreateCommand())
-            {
-                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
-                if (_closure.Distinct)
+
+            return new DbNumber(
+                valueProvider: () =>
                 {
-                    if (selection.IndexOf(',') == -1)
+                    using (var cmd = _db.CreateCommand())
                     {
-                        // select single column
-                        _genSql(sql, "SELECT COUNT(DISTINCT " + selection + ")", cc);
+                        var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
+                        if (_closure.Distinct)
+                        {
+                            if (selection.IndexOf(',') == -1)
+                            {
+                                // select single column
+                                _genSql(sql, "SELECT COUNT(DISTINCT " + selection + ")", cc);
+                            }
+                            else
+                            {
+                                sql.Append("SELECT COUNT(*) FROM (");
+                                _genSql(sql, "SELECT DISTINCT " + selection, cc);
+                                sql.Append(")");
+                            }
+                        }
+                        else
+                        {
+                            _genSql(sql, "SELECT COUNT(*)", cc);
+                        }
+                        cmd.CommandText = sql.ToString();
+                        return (decimal)_db.ExecuteScalar(cmd);
+                    }
+                },
+                sqlBuilder: sql =>
+                {
+                    sql.Append('(');
+                    if (_closure.Distinct)
+                    {
+                        if (selection.IndexOf(',') == -1)
+                        {
+                            // select single column
+                            _genSql(sql, "SELECT COUNT(DISTINCT " + selection + ")", cc);
+                        }
+                        else
+                        {
+                            sql.Append("SELECT COUNT(*) FROM (");
+                            _genSql(sql, "SELECT DISTINCT " + selection, cc);
+                            sql.Append(")");
+                        }
                     }
                     else
                     {
-                        sql.Append("SELECT COUNT(*) FROM (");
-                        _genSql(sql, "SELECT DISTINCT " + selection, cc);
-                        sql.Append(")");
+                        _genSql(sql, "SELECT COUNT(*)", cc);
                     }
-                }
-                else
-                {
-                    _genSql(sql, "SELECT COUNT(*)", cc);
-                }
-                cmd.CommandText = sql.ToString();
-                return (decimal)_db.ExecuteScalar(cmd);
-            }
+                    sql.Append(')');
+                });
         }
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public int Count()
+        public DbNumber Count()
         {
-            return (int)_Count();
+            return _Count();
         }
 
         /// <summary>
@@ -758,26 +839,26 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public int Count(Func<C, SqlBoolean> predicate)
+        public DbNumber Count(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).Count();
         }
 
         /// <summary>
-        /// SQL COUNT as long
+        /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public long LongCount()
+        public DbNumber LongCount()
         {
-            return (long)_Count();
+            return _Count();
         }
 
         /// <summary>
-        /// SQL COUNT as long
+        /// SQL COUNT as int
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public long LongCount(Func<C, SqlBoolean> predicate)
+        public DbNumber LongCount(Func<C, SqlBoolean> predicate)
         {
             return this.Where(predicate).LongCount();
         }
@@ -817,8 +898,7 @@ namespace Linq2Oracle
 
         public BooleanContext IsEmpty()
         {
-            var any = Any();
-            return new BooleanContext(() => !any, !(SqlBoolean)any);
+            return !Any();
         }
         #endregion
         #region All
@@ -904,7 +984,7 @@ namespace Linq2Oracle
         static ColumnExpressionBuilder()
         {
             var properties = from prop in typeof(C).GetProperties()
-                             where typeof(ISqlExpressionBuilder).IsAssignableFrom(prop.PropertyType)
+                             where typeof(IDbExpression).IsAssignableFrom(prop.PropertyType)
                              where Table<T>.DbColumnMap.ContainsKey(prop.Name)
                              select new
                              {
@@ -914,7 +994,7 @@ namespace Linq2Oracle
 
             //var lambda = (IQueryContext query)=> 
             //      new C {
-            //          Column1 = SqlExpressionBuilder.Init(new Column1Type(), column1.DbType, sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
+            //          Column1 = SqlExpressionBuilder.Init(new Column1Type(), sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
             //          Column2 = ...
             //      };
             var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
@@ -928,16 +1008,16 @@ namespace Linq2Oracle
                                     expression: Expression.Call(
                                         typeof(SqlExpressionBuilder),
                                         "Init",
-                                        new Type[] { prop.PropertyInfo.PropertyType },  
-                                        LambdaExpression.New(prop.PropertyInfo.PropertyType),   
-                                        LambdaExpression.Constant(prop.ColumnInfo.DbType),     
-                                        LambdaExpression.Lambda<Action<SqlContext>>(    
+                                        new Type[] { prop.PropertyInfo.PropertyType },
+                                        LambdaExpression.New(prop.PropertyInfo.PropertyType),
+                                  //LambdaExpression.Constant(prop.ColumnInfo.DbType),     
+                                        LambdaExpression.Lambda<Action<SqlContext>>(
                                             body: LambdaExpression.Call(
                                                 LambdaExpression.Call(
-                                                    LambdaExpression.Call(sql, 
+                                                    LambdaExpression.Call(sql,
                                                         "Append", null, LambdaExpression.Call(sql, "GetAlias", null, query)),
-                                                        "Append", null, LambdaExpression.Constant('.')),       
-                                                        "Append", null, LambdaExpression.Constant(prop.ColumnInfo.QuotesColumnName)),  
+                                                        "Append", null, LambdaExpression.Constant('.')),
+                                                        "Append", null, LambdaExpression.Constant(prop.ColumnInfo.QuotesColumnName)),
                                             parameters: sql
                                         )
                                     )

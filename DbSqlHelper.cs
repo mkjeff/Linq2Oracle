@@ -52,7 +52,7 @@ namespace Linq2Oracle
                     if (t == null)
                         sql.Append("NULL");
                     else
-                        sql.AppendParam(@this.DbType, t);
+                        sql.AppendParam( t);
                     delimiter = ", ";
                 }
 
@@ -62,7 +62,7 @@ namespace Linq2Oracle
 
         public static SqlBoolean In<T>(this IDbExpression<T> @this, IQueryContext<T> subquery)
         {
-            return new SqlBoolean(sql => sql.Append(@this).Append(" IN (").Append(subquery).Append(')'));
+            return new SqlBoolean(sql => sql.Append(@this).Append(" IN (").AppendQuery(subquery).Append(')'));
         }
         #endregion
         #region Where (Column1,Column2) In (...)
@@ -86,12 +86,12 @@ namespace Linq2Oracle
                     sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(@this.Item1.DbType, t.Item1);
+                    else sql.AppendParam(t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(@this.Item2.DbType, t.Item2);
+                    else sql.AppendParam(t.Item2);
 
                     sql.Append(')');
 
@@ -117,7 +117,7 @@ namespace Linq2Oracle
                 sql.Append('(')
                     .Append(@this.Item1).Append(',')
                     .Append(@this.Item2).Append(") IN (")
-                    .Append(subquery)
+                    .AppendQuery(subquery)
                     .Append(')'));
         }
         #endregion
@@ -147,17 +147,17 @@ namespace Linq2Oracle
                     sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam(@this.Item1.DbType, t.Item1);
+                    else sql.AppendParam( t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam(@this.Item2.DbType, t.Item2);
+                    else sql.AppendParam( t.Item2);
 
                     sql.Append(',');
 
                     if (t.Item3 == null) sql.Append("NULL");
-                    else sql.AppendParam(@this.Item3.DbType, t.Item3);
+                    else sql.AppendParam( t.Item3);
 
                     sql.Append(')');
                     delimiter = ", ";
@@ -184,7 +184,7 @@ namespace Linq2Oracle
                     .Append(@this.Item1).Append(',')
                     .Append(@this.Item2).Append(',')
                     .Append(@this.Item3).Append(") IN (")
-                    .Append(subquery)
+                    .AppendQuery(subquery)
                     .Append(')'));
         }
         #endregion

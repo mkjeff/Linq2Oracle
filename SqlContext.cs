@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Linq2Oracle
 {
@@ -50,7 +49,7 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext Append(IQueryContext subQuery)
+        internal SqlContext AppendQuery(IQueryContext subQuery)
         {
             subQuery.GenInnerSql(this);
             return this;
@@ -68,6 +67,12 @@ namespace Linq2Oracle
             return this;
         }
 
+        internal SqlContext Append(Action<SqlContext> sqlGenetor)
+        {
+            sqlGenetor(this);
+            return this;
+        }
+
         internal SqlContext Append(char ch)
         {
             sql.Append(ch);
@@ -80,7 +85,7 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext Append(IDbExpression expression)
+        internal SqlContext Append<T>(T expression) where T : IDbExpression
         {
             if (expression == null)
                 throw new ArgumentNullException("expression");

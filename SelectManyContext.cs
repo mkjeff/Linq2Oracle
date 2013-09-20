@@ -1,10 +1,8 @@
-﻿using Oracle.ManagedDataAccess.Client;
+﻿using Linq2Oracle.Expressions;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Text;
-using Linq2Oracle.Expressions;
 
 namespace Linq2Oracle
 {
@@ -77,7 +75,7 @@ namespace Linq2Oracle
             var newList = new List<SortDescription>(_closure.Orderby);
             newList.AddRange(from order in keySelector(_transparentId)
                              where Table<T>.DbColumnMap.ContainsKey(order.ColumnName)
-                             select new SortDescription(new DbExpression(sql => sql.Append(sql.GetAlias(this)).Append(".").Append(order.ColumnName)), order.Descending));
+                             select new SortDescription(new ColumnExpression(this, order.ColumnName), order.Descending));
 
             var newC = _closure;
             newC.Orderby = newList;
@@ -86,7 +84,7 @@ namespace Linq2Oracle
         }
         public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(_transparentId));
+            return OrderBy(keySelector(_transparentId),false);
         }
         public SelectManyContext<C, T, TResult, _> OrderByDescending(Func<_, IDbExpression> keySelector)
         {
@@ -95,14 +93,14 @@ namespace Linq2Oracle
 
         public SelectManyContext<C, T, TResult, _> ThenBy(Func<_, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(_transparentId));
+            return OrderBy(keySelector(_transparentId),false);
         }
         public SelectManyContext<C, T, TResult, _> ThenByDescending(Func<_, IDbExpression> keySelector)
         {
             return OrderBy(keySelector(_transparentId), true);
         }
 
-        SelectManyContext<C, T, TResult, _> OrderBy(IDbExpression expr, bool desc = false)
+        SelectManyContext<C, T, TResult, _> OrderBy(IDbExpression expr, bool desc)
         {
             var newC = _closure;
             newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
