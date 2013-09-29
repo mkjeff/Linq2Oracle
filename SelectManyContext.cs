@@ -16,8 +16,8 @@ namespace Linq2Oracle
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly _ _transparentId;
 
-        internal SelectManyContext(IQueryContext originalSource, OracleDB db, _ transparentId, Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
-            : base(db, projector, closure, originalSource, genSql, columnDefine)
+        internal SelectManyContext(IQueryContext originalSource, _ transparentId, Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
+            : base(projector, closure, genSql, columnDefine)
         {
             _transparentId = transparentId;
         }
@@ -35,7 +35,7 @@ namespace Linq2Oracle
                 return this;
             var newC = _closure;
             newC.Filters = new List<SqlBoolean>(_closure.Filters) { filter };
-            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _db, _transparentId, _projection, _genSql, newC, ColumnDefine);
+            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
         #endregion
         #region Select
@@ -55,7 +55,6 @@ namespace Linq2Oracle
             newC.Tables = new List<IQueryContext>(_closure.Tables) { innerContext };
             return new SelectManyContext<C, T, TResult, __>(
                 originalSource: OriginalSource,
-                db: _db,
                 transparentId: resultSelector(_transparentId, innerContext.ColumnDefine),
                 projector: _projection,
                 genSql: (sql, select, c) =>
@@ -80,7 +79,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Orderby = newList;
 
-            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _db, _transparentId, _projection, _genSql, newC, ColumnDefine);
+            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
         public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector)
         {
@@ -104,7 +103,7 @@ namespace Linq2Oracle
         {
             var newC = _closure;
             newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
-            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _db, _transparentId, _projection, _genSql, newC, ColumnDefine);
+            return new SelectManyContext<C, T, TResult, _>(OriginalSource, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
         #endregion
     }

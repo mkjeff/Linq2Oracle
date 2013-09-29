@@ -105,7 +105,7 @@ namespace Linq2Oracle
                 if (keyPredicate.IsVaild)
                     newClosure.Filters = new List<SqlBoolean>(_context._closure.Filters) { keyPredicate };
 
-                yield return new GroupingContext<C, T, TKey, TElement>(_context.OriginalSource, key, _context.Db, _context._projection, _context._genSql, newClosure, _context.ColumnDefine);
+                yield return new GroupingContext<C, T, TKey, TElement>(_context, key, newClosure);
             }
         }
         #endregion
@@ -124,8 +124,8 @@ namespace Linq2Oracle
     {
         public TKey Key { get; private set; }
 
-        internal GroupingContext(IQueryContext originalSource, TKey key, OracleDB db, System.Lazy<Projection> projector, SqlGenerator genSql, Closure closure, C columnDefine)
-            : base(db, projector, closure, originalSource, genSql, columnDefine)
+        internal GroupingContext(QueryContext<C, T, TElement> context, TKey key, Closure closure)
+            : base(context._projection, closure, context._genSql, context.ColumnDefine)
         {
             Key = key;
         }

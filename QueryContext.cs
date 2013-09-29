@@ -30,12 +30,8 @@ namespace Linq2Oracle
         internal readonly C ColumnDefine;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        internal readonly OracleDB _db;
-
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal readonly SqlGenerator _genSql;
 
-        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal readonly Lazy<Projection> _projection;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -61,11 +57,14 @@ namespace Linq2Oracle
         }
         #endregion
         #region Constructors
-        internal QueryContext(OracleDB db, Lazy<Projection> projector, Closure closure, IQueryContext originalSource = null, SqlGenerator genSql = null, C columnDefine = null)
+        internal QueryContext(Lazy<Projection> projector, Closure closure, SqlGenerator genSql = null, C columnDefine = null)
         {
-            _db = db;
             _projection = projector;
             _closure = closure;
+            
+            if (closure.OriginalSource == null)
+                _closure.OriginalSource = this;
+
             _genSql = genSql ?? ((sql, select, c) =>
             {
                 sql.Append(select).MappingAlias(this)
@@ -74,9 +73,8 @@ namespace Linq2Oracle
                     .AppendOrder(c.Orderby);
             });
 
-            OriginalSource = originalSource ?? this;
             ColumnDefine = columnDefine ?? ColumnExpressionBuilder<T, C>.Create(this);
-            _data = EnumerableEx.Using(() => _db.CreateCommand(), cmd =>
+            _data = EnumerableEx.Using(() => Db.CreateCommand(), cmd =>
             {
                 var sql = new SqlContext(new StringBuilder(128), cmd.Parameters);
                 string select = _projection.Value.SelectSql;
@@ -85,7 +83,7 @@ namespace Linq2Oracle
                 _genSql(sql, "SELECT " + select, _closure);
                 sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
                 cmd.CommandText = sql.ToString();
-                return EnumerableEx.Using(() => _db.ExecuteReader(cmd), GetResult);
+                return EnumerableEx.Using(() => Db.ExecuteReader(cmd), GetResult);
             });
         }
 
@@ -163,7 +161,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            return new QueryContext<C, T, TResult>(_projection, newC, (sql, select, c) =>
                 {
                     // SELECT [select] 
                     // FROM (SELECT a.*, ROWNUM AS rn 
@@ -190,7 +188,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            return new QueryContext<C, T, TResult>(_projection, newC, (sql, select, c) =>
                 {
                     if (c.Filters.Any() || c.Orderby.Any())
                     {
@@ -227,7 +225,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            return new QueryContext<C, T, TResult>(_projection, newC, (sql, select, c) =>
             {
                 if (c.Filters.Any() || c.Orderby.Any())
                 {
@@ -273,7 +271,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Filters = EmptyList<SqlBoolean>.Instance;
             newC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, (sql, select, c) =>
+            return new QueryContext<C, T, TResult>(_projection, newC, (sql, select, c) =>
             {
                 if (c.Filters.Any() || c.Orderby.Any())
                 {
@@ -334,7 +332,7 @@ namespace Linq2Oracle
 
             var newC = _closure;
             newC.Orderby = newList;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TResult>(_projection, newC, _genSql, ColumnDefine);
         }
 
         /// <summary>
@@ -381,7 +379,7 @@ namespace Linq2Oracle
         {
             var newC = _closure;
             newC.Orderby = new List<SortDescription>(_closure.Orderby) { new SortDescription(expr, desc) };
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TResult>(_projection, newC, _genSql, ColumnDefine);
         }
         #endregion
         #region Where
@@ -397,7 +395,7 @@ namespace Linq2Oracle
                 return this;
             var newC = _closure;
             newC.Filters = new List<SqlBoolean>(_closure.Filters) { filter };
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TResult>(_projection, newC, _genSql, ColumnDefine);
         }
         #endregion
         #region Select
@@ -416,7 +414,7 @@ namespace Linq2Oracle
         /// <returns></returns>
         public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
         {
-            return new QueryContext<C, T, TR>(_db, new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TR>(new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, _genSql, ColumnDefine);
         }
         #endregion
         #region SelectMany
@@ -431,7 +429,6 @@ namespace Linq2Oracle
 
             return new SelectManyContext<C, T, TResult, _>(
                 originalSource: OriginalSource,
-                db: _db,
                 transparentId: resultSelector(ColumnDefine, innerContext.ColumnDefine),
                 projector: _projection,
                 genSql: (sql, select, c) =>
@@ -450,7 +447,7 @@ namespace Linq2Oracle
         {
             var newC = _closure;
             newC.Distinct = true;
-            return new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TResult>(_projection, newC, _genSql, ColumnDefine);
         }
         #endregion
         #region GroupBy
@@ -466,7 +463,7 @@ namespace Linq2Oracle
             var newC = _closure;
             newC.Orderby = EmptyList<SortDescription>.Instance;
             return new GroupingContextCollection<C, T, TKey, TResult>(
-                new QueryContext<C, T, TResult>(_db, _projection, newC, OriginalSource, _genSql, ColumnDefine),
+                new QueryContext<C, T, TResult>(_projection, newC, _genSql, ColumnDefine),
                 keySelector);
         }
 
@@ -490,17 +487,12 @@ namespace Linq2Oracle
         {
             var thisC = _closure; thisC.Orderby = EmptyList<SortDescription>.Instance;
             var otherC = other._closure; otherC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(
-                db: _db,
-                projector: _projection,
-                closure: new Closure
+            return new QueryContext<C, T, TResult>(projector: _projection, closure: new Closure
                 {
                     Filters = EmptyList<SqlBoolean>.Instance,
                     Orderby = EmptyList<SortDescription>.Instance,
                     Tables = EmptyList<IQueryContext>.Instance,
-                },
-                originalSource: OriginalSource,
-                genSql: (sql, select, c) =>
+                }, genSql: (sql, select, c) =>
                 {
                     sql.Append(select).Append(" FROM (");
                     this._genSql(sql, "SELECT t0.*", thisC);
@@ -509,8 +501,7 @@ namespace Linq2Oracle
                     sql.Append(") t0")
                         .AppendWhere(c.Filters)
                         .AppendOrder(c.Orderby);
-                },
-                columnDefine: ColumnDefine);
+                }, columnDefine: ColumnDefine);
         }
 
         /// <summary>
@@ -741,13 +732,13 @@ namespace Linq2Oracle
         {
             var cc = _closure;
             cc.Orderby = EmptyList<SortDescription>.Instance;
-            using (var cmd = _db.CreateCommand())
+            using (var cmd = Db.CreateCommand())
             {
                 var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
                 sql.Append("SELECT ").Append(exprGen);
                 _genSql(sql, string.Empty, cc);
                 cmd.CommandText = sql.ToString();
-                var result = _db.ExecuteScalar(cmd);
+                var result = Db.ExecuteScalar(cmd);
                 return result == DBNull.Value ? null : result;
             }
         }
@@ -775,7 +766,7 @@ namespace Linq2Oracle
             return new DbNumber(
                 valueProvider: () =>
                 {
-                    using (var cmd = _db.CreateCommand())
+                    using (var cmd = Db.CreateCommand())
                     {
                         var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
                         if (_closure.Distinct)
@@ -797,7 +788,7 @@ namespace Linq2Oracle
                             _genSql(sql, "SELECT COUNT(*)", cc);
                         }
                         cmd.CommandText = sql.ToString();
-                        return (decimal)_db.ExecuteScalar(cmd);
+                        return (decimal)Db.ExecuteScalar(cmd);
                     }
                 },
                 sqlBuilder: sql =>
@@ -871,14 +862,14 @@ namespace Linq2Oracle
                 valueProvider: () =>
                 {
                     var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
-                    using (var cmd = _db.CreateCommand())
+                    using (var cmd = Db.CreateCommand())
                     {
                         var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM ("), cmd.Parameters);
                         _genSql(sql, "SELECT *", cc);
                         sql.Append("))) THEN 1 ELSE 0 END value FROM DUAL");
 
                         cmd.CommandText = sql.ToString();
-                        return (decimal)_db.ExecuteScalar(cmd) == 1;
+                        return (decimal)Db.ExecuteScalar(cmd) == 1;
                     }
                 },
                 predicate: new SqlBoolean(sql =>
@@ -909,27 +900,14 @@ namespace Linq2Oracle
             if (!filter.IsVaild)
                 throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "All條件有誤");
             var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
-            using (var cmd = _db.CreateCommand())
+            using (var cmd = Db.CreateCommand())
             {
                 var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM ("), cmd.Parameters);
                 _genSql(sql, "SELECT *", cc);
                 sql.Append(") a WHERE NOT (").Append(filter).Append("))) THEN 1 ELSE 0 END value FROM DUAL");
                 cmd.CommandText = sql.ToString();
-                return (decimal)_db.ExecuteScalar(cmd) == 1;
+                return (decimal)Db.ExecuteScalar(cmd) == 1;
             }
-        }
-        #endregion
-
-        #region IEnumerable<TResult> 成員
-        IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator()
-        {
-            return _data.GetEnumerator();
-        }
-        #endregion
-        #region IEnumerable 成員
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable<TResult>)this).GetEnumerator();
         }
         #endregion
         #region ForUpdate(Row Lock)
@@ -942,11 +920,23 @@ namespace Linq2Oracle
         {
             var newClosure = _closure;
             newClosure.ForUpdate = waitSec;
-            return new QueryContext<C, T, TResult>(_db, _projection, newClosure, OriginalSource, _genSql, ColumnDefine);
+            return new QueryContext<C, T, TResult>(_projection, newClosure, _genSql, ColumnDefine);
         }
         #endregion
+        #region IEnumerable<TResult> 成員
+        IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator()
+        {
+            return _data.GetEnumerator();
+        }
+        #endregion
+        #region IEnumerable 成員
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return ((IEnumerable<TResult>)this).GetEnumerator();
+        }
+        #endregion       
         #region IQueryContext 成員
-        public IQueryContext OriginalSource { get; private set; }
+        public IQueryContext OriginalSource { get { return _closure.OriginalSource; } }
 
         void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
@@ -969,7 +959,7 @@ namespace Linq2Oracle
             sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
         }
 
-        public OracleDB Db { get { return _db; } }
+        public OracleDB Db { get { return _closure.Db; } }
 
         public string TableName { get { return Table<T>.TableName; } }
         #endregion
@@ -1062,8 +1052,9 @@ namespace Linq2Oracle
         static readonly Lazy<Projection> identityProjection = new Lazy<Projection>(() => Projection.Identity<T>());
 
         public EntityTable(OracleDB db)
-            : base(db, identityProjection, new Closure
+            : base(identityProjection, new Closure
             {
+                Db = db,
                 Filters = EmptyList<SqlBoolean>.Instance,
                 Orderby = EmptyList<SortDescription>.Instance,
                 Tables = EmptyList<IQueryContext>.Instance,
@@ -1072,6 +1063,8 @@ namespace Linq2Oracle
 
     struct Closure
     {
+        public OracleDB Db;
+        public IQueryContext OriginalSource;
         public IReadOnlyList<IQueryContext> Tables;
         public IReadOnlyList<SqlBoolean> Filters;
         public IReadOnlyList<SortDescription> Orderby;
