@@ -7,9 +7,8 @@ namespace Linq2Oracle.Expressions
 
     public interface IDbExpression
     {
+        SqlGenerator Build { get; set; }
         bool IsNullExpression { get; }
-        void Build(SqlContext sql);
-        void Setup(SqlGenerator sqlGen);
     }
 
     public interface IDbExpression<T> : IDbExpression { }
@@ -34,11 +33,10 @@ namespace Linq2Oracle.Expressions
         }
         public static implicit operator DbString(string value)
         {
-            var result = new DbString();
             if (value == null)
-                return result;// stackoverflow
+                return new DbString();
 
-            return result.Init(SqlParameter.Create(value));
+            return SqlParameter.Create(value).Create<DbString>();
         }
         #endregion
         #region Comparision Operator
@@ -75,7 +73,7 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbString operator +(DbString a, DbString b)
         {
-            return new DbString().Init(Operation.Binary(a, "||", b));
+            return Operation.Binary(a, "||", b).Create<DbString>();
         }
         #endregion
         #region Methods
@@ -138,47 +136,47 @@ namespace Linq2Oracle.Expressions
 
         public DbString Substring(int startIndex, int length)
         {
-            return new DbString().Init(Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1), (DbNumber)length));
+            return Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1), (DbNumber)length).Create<DbString>();
         }
 
         public DbString Substring(DbNumber startIndex, DbNumber length)
         {
-            return new DbString().Init(Function.Call("SUBSTR", this, startIndex, length));
+            return Function.Call("SUBSTR", this, startIndex, length).Create<DbString>();
         }
 
         public DbString Substring(int startIndex)
         {
-            return new DbString().Init(Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1)));
+            return Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1)).Create<DbString>();
         }
 
         public DbString Substring(DbNumber startIndex)
         {
-            return new DbString().Init(Function.Call("SUBSTR", this, startIndex));
+            return Function.Call("SUBSTR", this, startIndex).Create<DbString>();
         }
 
         public DbString Trim()
         {
-            return new DbString().Init(Function.Call("TRIM", this));
+            return Function.Call("TRIM", this).Create<DbString>();
         }
 
         public DbString TrimStart()
         {
-            return new DbString().Init(Function.Call("LTRIM", this));
+            return Function.Call("LTRIM", this).Create<DbString>();
         }
 
         public DbString TrimEnd()
         {
-            return new DbString().Init(Function.Call("RTRIM", this));
+            return Function.Call("RTRIM", this).Create<DbString>();
         }
 
         public DbString ToLower()
         {
-            return new DbString().Init(Function.Call("LOWER", this));
+            return Function.Call("LOWER", this).Create<DbString>();
         }
 
         public DbString ToUpper()
         {
-            return new DbString().Init(Function.Call("UPPER", this));
+            return Function.Call("UPPER", this).Create<DbString>();
         }
         #endregion
         #region Properties
@@ -186,7 +184,7 @@ namespace Linq2Oracle.Expressions
         {
             get
             {
-                return new DbNumber().Init(Function.Call("LENGTH", this));
+                return Function.Call("LENGTH", this).Create<DbNumber>();
             }
         }
 
@@ -194,7 +192,7 @@ namespace Linq2Oracle.Expressions
         {
             get
             {
-                return new DbChar().Init(Function.Call("SUBSTR", this, (DbNumber)(index + 1), (DbNumber)1));
+                return Function.Call("SUBSTR", this, (DbNumber)(index + 1), (DbNumber)1).Create<DbChar>();
             }
         }
 
@@ -202,27 +200,14 @@ namespace Linq2Oracle.Expressions
         {
             get
             {
-                return new DbChar().Init(Function.Call("SUBSTR", this, index, (DbNumber)1));
+                return Function.Call("SUBSTR", this, index, (DbNumber)1).Create<DbChar>();
             }
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -233,7 +218,7 @@ namespace Linq2Oracle.Expressions
         #region Conversion Operator
         public static implicit operator DbChar(char value)
         {
-            return new DbChar().Init(SqlParameter.Create(value));
+            return SqlParameter.Create(value).Create<DbChar>();
         }
         #endregion
         #region Comparision Operator
@@ -280,22 +265,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-        
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -306,7 +278,7 @@ namespace Linq2Oracle.Expressions
         #region Conversion Operator
         public static implicit operator Enum<T>(T value)
         {
-            return new Enum<T>().Init(SqlParameter.Create(value, OracleDbType.Varchar2));
+            return SqlParameter.Create(value, OracleDbType.Varchar2).Create<Enum<T>>();
         }
         #endregion
         #region Comparision Operator
@@ -353,22 +325,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -379,7 +338,7 @@ namespace Linq2Oracle.Expressions
         #region Conversion Operator
         public static implicit operator DbDateTime(System.DateTime value)
         {
-            return new DbDateTime().Init(SqlParameter.Create(value));
+            return SqlParameter.Create(value).Create<DbDateTime>();
         }
         #endregion
         #region Comparision Operator
@@ -416,7 +375,7 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbTimeSpan operator -(DbDateTime a, DbDateTime b)
         {
-            return new DbTimeSpan().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<DbTimeSpan>();
         }
         #endregion
         #region Methods
@@ -430,24 +389,16 @@ namespace Linq2Oracle.Expressions
         {
             return obj is DbDateTime ? this == (DbDateTime)obj : new SqlBoolean();
         }
+
+        internal NullableDbDateTime ToNullable()
+        {
+            return this._sqlBuilder.Create<NullableDbDateTime>();
+        }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -458,7 +409,7 @@ namespace Linq2Oracle.Expressions
         #region Conversion Operator
         public static implicit operator DbTimeSpan(System.TimeSpan value)
         {
-            return new DbTimeSpan().Init(SqlParameter.Create(value));
+            return SqlParameter.Create(value).Create<DbTimeSpan>();
         }
         #endregion
         #region Comparision Operator
@@ -507,12 +458,12 @@ namespace Linq2Oracle.Expressions
 
         public static DbTimeSpan operator +(DbTimeSpan a, DbTimeSpan b)
         {
-            return new DbTimeSpan().Init(Operation.Binary(a, "+", b));
+            return Operation.Binary(a, "+", b).Create<DbTimeSpan>();
         }
 
         public static DbTimeSpan operator -(DbTimeSpan a, DbTimeSpan b)
         {
-            return new DbTimeSpan().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<DbTimeSpan>();
         }
         #endregion
         #region Methods
@@ -526,24 +477,16 @@ namespace Linq2Oracle.Expressions
         {
             return obj is DbTimeSpan ? this == (DbTimeSpan)obj : new SqlBoolean();
         }
+
+        internal NullableDbTimeSpan ToNullable()
+        {
+            return this._sqlBuilder.Create<NullableDbTimeSpan>();
+        }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -595,71 +538,81 @@ namespace Linq2Oracle.Expressions
             return @this._valueProvider();
         }
 
+        static DbNumber Create<T>(T value) where T : struct
+        {
+            return SqlParameter.Create(value).Create<DbNumber>();
+        }
+
+        static DbNumber Create<T>(T? value) where T : struct
+        {
+            return SqlParameter.Create(value).Create<DbNumber>();
+        }
+
         public static implicit operator DbNumber(short value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         public static implicit operator DbNumber(int value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         public static implicit operator DbNumber(long value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         public static implicit operator DbNumber(float value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         public static implicit operator DbNumber(double value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         public static implicit operator DbNumber(decimal value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(short? value)
         {
             // C# / Visual Studio bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(int? value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(long? value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(float? value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(double? value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
 
         [Obsolete("This is an unsafe conversion", false)]
         public static implicit operator DbNumber(decimal? value)
         {
-            return new DbNumber().Init(SqlParameter.Create(value));
+            return Create(value);
         }
         #endregion
         #region Comparision Operator
@@ -696,37 +649,37 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbNumber operator +(DbNumber a)
         {
-            return new DbNumber().Init(Operation.Unary("+", a));
+            return Operation.Unary("+", a).Create<DbNumber>();
         }
 
         public static DbNumber operator -(DbNumber a)
         {
-            return new DbNumber().Init(Operation.Unary("-", a));
+            return Operation.Unary("-", a).Create<DbNumber>();
         }
 
         public static DbNumber operator +(DbNumber a, DbNumber b)
         {
-            return new DbNumber().Init(Operation.Binary(a, "+", b));
+            return Operation.Binary(a, "+", b).Create<DbNumber>();
         }
 
         public static DbNumber operator -(DbNumber a, DbNumber b)
         {
-            return new DbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator *(DbNumber a, DbNumber b)
         {
-            return new DbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator /(DbNumber a, DbNumber b)
         {
-            return new DbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator %(DbNumber a, DbNumber b)
         {
-            return new DbNumber().Init(Function.Call("MOD", a, b));
+            return Function.Call("MOD", a, b).Create<DbNumber>();
         }
         #endregion
         #region Methods
@@ -740,24 +693,16 @@ namespace Linq2Oracle.Expressions
         {
             return obj is DbNumber ? this == (DbNumber)obj : new SqlBoolean();
         }
+
+        internal NullableDbNumber ToNullable()
+        {
+            return this._sqlBuilder.Create<NullableDbNumber>();
+        }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -767,16 +712,15 @@ namespace Linq2Oracle.Expressions
     {
         public DbChar GetValueOrDefault(DbChar defaultValue)
         {
-            return new DbChar().Init(Function.Call("NVL", this, defaultValue));
+            return Function.Call("NVL", this, defaultValue).Create<DbChar>();
         }
 
         public static implicit operator NullableDbChar(char? value)
         {
-            var result = new NullableDbChar();
             if (!value.HasValue)
-                return result;
+                return new NullableDbChar();
 
-            return result.Init(SqlParameter.Create(value.Value));
+            return SqlParameter.Create(value.Value).Create<NullableDbChar>();
         }
 
         #region Comparision Operators
@@ -811,22 +755,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -836,16 +767,15 @@ namespace Linq2Oracle.Expressions
     {
         public Enum<T> GetValueOrDefault(Enum<T> defaultValue)
         {
-            return new Enum<T>().Init(Function.Call("NVL", this, defaultValue));
+            return Function.Call("NVL", this, defaultValue).Create<Enum<T>>();
         }
 
         public static implicit operator NullableEnum<T>(T? value)
         {
-            var result = new NullableEnum<T>();
             if (!value.HasValue)
-                return result;
+                return new NullableEnum<T>();
 
-            return result.Init(SqlParameter.Create(value.Value, OracleDbType.Varchar2));
+            return SqlParameter.Create(value.Value, OracleDbType.Varchar2).Create<NullableEnum<T>>();
         }
         #region Comparision Operators
         public static SqlBoolean operator ==(NullableEnum<T> a, NullableEnum<T> b)
@@ -879,22 +809,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -912,7 +829,7 @@ namespace Linq2Oracle.Expressions
 
         public DbDateTime GetValueOrDefault(DbDateTime defaultValue)
         {
-            return new DbDateTime().Init(Function.Call("NVL", this, defaultValue));
+            return Function.Call("NVL", this, defaultValue).Create<DbDateTime>();
         }
 
         public static implicit operator System.DateTime?(NullableDbDateTime @this)
@@ -922,16 +839,20 @@ namespace Linq2Oracle.Expressions
 
         public static implicit operator NullableDbDateTime(DateTime? value)
         {
-            var result = new NullableDbDateTime();
             if (!value.HasValue)
-                return result;
+                return new NullableDbDateTime();
 
-            return result.Init(SqlParameter.Create(value.Value));
+            return SqlParameter.Create(value.Value).Create<NullableDbDateTime>();
+        }
+
+        public static implicit operator NullableDbDateTime(DbDateTime value)
+        {
+            return value.ToNullable();
         }
 
         public static NullableDbTimeSpan operator -(NullableDbDateTime a, NullableDbDateTime b)
         {
-            return new NullableDbTimeSpan().Init(Operation.Binary(a, " - ", b));
+            return Operation.Binary(a, " - ", b).Create<NullableDbTimeSpan>();
         }
 
         #region Comparision Operators
@@ -966,22 +887,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -1004,16 +912,20 @@ namespace Linq2Oracle.Expressions
 
         public static implicit operator NullableDbTimeSpan(TimeSpan? value)
         {
-            var result = new NullableDbTimeSpan();
             if (!value.HasValue)
-                return result;
+                return new NullableDbTimeSpan();
 
-            return result.Init(SqlParameter.Create(value.Value));
+            return SqlParameter.Create(value.Value).Create<NullableDbTimeSpan>();
+        }
+
+        public static implicit operator NullableDbTimeSpan(DbTimeSpan value)
+        {
+            return value.ToNullable();
         }
 
         public DbTimeSpan GetValueOrDefault(DbTimeSpan defaultValue)
         {
-            return new DbTimeSpan().Init(Function.Call("NVL", this, defaultValue));
+            return Function.Call("NVL", this, defaultValue).Create<DbTimeSpan>();
         }
 
         #region Comparision Operators
@@ -1048,22 +960,9 @@ namespace Linq2Oracle.Expressions
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -1087,7 +986,7 @@ namespace Linq2Oracle.Expressions
 
         public DbNumber GetValueOrDefault(DbNumber defaultValue)
         {
-            return new DbNumber().Init(Function.Call("NVL", this, defaultValue));
+            return Function.Call("NVL", this, defaultValue).Create<DbNumber>();
         }
 
         #region Conversion Operator
@@ -1123,16 +1022,15 @@ namespace Linq2Oracle.Expressions
 
         public static implicit operator NullableDbNumber(DbNumber value)
         {
-            return new NullableDbNumber().Init(sql => sql.Append(value));
+            return value.ToNullable();
         }
 
         static NullableDbNumber Create<T>(T? value) where T:struct
         {
-            var result = new NullableDbNumber();
             if (!value.HasValue)
-                return result;
+                return new NullableDbNumber();
 
-            return result.Init(SqlParameter.Create(value.Value));
+            return SqlParameter.Create(value.Value).Create<NullableDbNumber>();
         }
        
         public static implicit operator NullableDbNumber(short? value)
@@ -1199,51 +1097,38 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static NullableDbNumber operator +(NullableDbNumber a)
         {
-            return new NullableDbNumber().Init(Operation.Unary("+", a));
+            return Operation.Unary("+", a).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator -(NullableDbNumber a)
         {
-            return new NullableDbNumber().Init(Operation.Unary("-", a));
+            return Operation.Unary("-", a).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator +(NullableDbNumber a, NullableDbNumber b)
         {
-            return new NullableDbNumber().Init(Operation.Binary(a, "+", b));
+            return Operation.Binary(a, "+", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator -(NullableDbNumber a, NullableDbNumber b)
         {
-            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator *(NullableDbNumber a, NullableDbNumber b)
         {
-            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator /(NullableDbNumber a, NullableDbNumber b)
         {
-            return new NullableDbNumber().Init(Operation.Binary(a, "-", b));
+            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
         }
         #endregion
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
         SqlGenerator _sqlBuilder;
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-            _sqlBuilder = sqlGen;
-        }
-
-        public bool IsNullExpression
-        {
-            get { return _sqlBuilder == null; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { _sqlBuilder = value; } }
+        bool IDbExpression.IsNullExpression { get { return _sqlBuilder == null; } }
         #endregion
     }
     #endregion
@@ -1258,19 +1143,8 @@ namespace Linq2Oracle.Expressions
         }
 
         #region IDbExpression
-        void IDbExpression.Build(SqlContext sql)
-        {
-            _sqlBuilder(sql);
-        }
-
-        void IDbExpression.Setup(SqlGenerator sqlGen)
-        {
-        }
-
-        public bool IsNullExpression
-        {
-            get { return false; }
-        }
+        SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { } }
+        bool IDbExpression.IsNullExpression { get { return false; } }
         #endregion
     }
 }

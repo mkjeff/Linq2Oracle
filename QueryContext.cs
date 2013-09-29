@@ -984,7 +984,7 @@ namespace Linq2Oracle
 
             //var lambda = (IQueryContext query)=> 
             //      new C {
-            //          Column1 = SqlExpressionBuilder.Init(new Column1Type(), sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
+            //          Column1 = SqlExpressionBuilder.Create<Column1Type>(sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
             //          Column2 = ...
             //      };
             var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
@@ -997,10 +997,8 @@ namespace Linq2Oracle
                                     member: prop.PropertyInfo,
                                     expression: Expression.Call(
                                         typeof(SqlExpressionBuilder),
-                                        "Init",
+                                        "Create",
                                         new Type[] { prop.PropertyInfo.PropertyType },
-                                        LambdaExpression.New(prop.PropertyInfo.PropertyType),
-                                  //LambdaExpression.Constant(prop.ColumnInfo.DbType),     
                                         LambdaExpression.Lambda<Action<SqlContext>>(
                                             body: LambdaExpression.Call(
                                                 LambdaExpression.Call(

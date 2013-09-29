@@ -91,6 +91,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DbExpression.cs" />
+    <Compile Include="ExpressionComparer.cs" />
     <Compile Include="IDbExpressionBuilder.cs" />
     <Compile Include="QueryContext.cs" />
     <Compile Include="DbEntity.cs" />
@@ -101,7 +102,6 @@
     <Compile Include="ExpressionCache.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="ExpressionComparer.cs" />
     <Compile Include="ExpressionHasher.cs" />
     <Compile Include="ExpressionVisitor.cs" />
     <Compile Include="GlobalSuppressions.cs" />

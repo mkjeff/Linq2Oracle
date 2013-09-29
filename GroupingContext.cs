@@ -11,6 +11,7 @@ using System.Text;
 
 namespace Linq2Oracle
 {
+    using System;
     using SqlGenerator = System.Action<SqlContext, string, Closure>;
 
     /// <summary>
@@ -146,52 +147,45 @@ namespace Linq2Oracle
         #region Count / LongCount
         public DbNumber Count()
         {
-            return new DbNumber().Init(sql => sql.Append("COUNT(*)"));
+            return Function.Count().Create<DbNumber>();
         }
 
         public DbNumber LongCount()
         {
-            return new DbNumber().Init(sql => sql.Append("COUNT(*)"));
+            return Function.Count().Create<DbNumber>();
         }
         #endregion
         #region Average
-        public DbNumber Average(System.Func<C, DbNumber> selector)
+        public DbNumber Average(Func<C, DbNumber> selector)
         {
-            return new DbNumber().Init(Function.Call("AVG", selector(ColumnDefine)));
+            return Function.Call("AVG", selector(ColumnDefine)).Create<DbNumber>();
         }
 
-        public NullableDbNumber Average(System.Func<C, NullableDbNumber> selector)
+        public NullableDbNumber Average(Func<C, NullableDbNumber> selector)
         {
-            return new NullableDbNumber().Init(Function.Call("AVG", selector(ColumnDefine)));
+            return Function.Call("AVG", selector(ColumnDefine)).Create<NullableDbNumber>();
         }
         #endregion
         #region Sum
-        public DbNumber Sum(System.Func<C, DbNumber> selector) 
+        public DbNumber Sum(Func<C, DbNumber> selector)
         {
-            var c = selector(ColumnDefine);
-            return new DbNumber().Init(Function.Call("SUM", selector(ColumnDefine)));
+            return Function.Call("SUM", selector(ColumnDefine)).Create<DbNumber>();
         }
 
-        public NullableDbNumber Sum(System.Func<C, NullableDbNumber> selector)
+        public NullableDbNumber Sum(Func<C, NullableDbNumber> selector)
         {
-            var c = selector(ColumnDefine);
-            return new NullableDbNumber().Init(Function.Call("SUM", selector(ColumnDefine)));
+            return Function.Call("SUM", selector(ColumnDefine)).Create<NullableDbNumber>();
         }
         #endregion
         #region Max / Min
-        public TColumn Max<TColumn>(System.Func<C, TColumn> selector) where TColumn : IDbExpression, new()
+        public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression
         {
-            var c = selector(ColumnDefine);
-            var result = new TColumn().Init(sql => sql.Append("MAX(").Append(selector(ColumnDefine)).Append(')'));
-            return result;
+            return Function.Call("MAX", selector(ColumnDefine)).Create<TColumn>();
         }
 
-        public TColumn Min<TColumn>(System.Func<C, TColumn> selector) where TColumn : IDbExpression, new()
+        public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression
         {
-            var c = selector(ColumnDefine);
-            var result = new TColumn().Init(sql =>
-                sql.Append("MIN(").Append(selector(ColumnDefine)).Append(')'));
-            return result;
+            return Function.Call("MIN", selector(ColumnDefine)).Create<TColumn>();
         }
         #endregion
     }

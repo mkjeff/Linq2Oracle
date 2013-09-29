@@ -7,10 +7,9 @@ namespace Linq2Oracle.Expressions
 
     static class SqlExpressionBuilder
     {
-        public static T Init<T>(this T column, Action<SqlContext> sqlGenerator) where T : IDbExpression
+        public static T Create<T>(this SqlGenerator sqlGenerator) where T : struct, IDbExpression
         {
-            column.Setup(sqlGenerator);
-            return column;
+            return new T { Build = sqlGenerator };
         }
 
         public static SqlBoolean IsEquals<T1, T2>(this T1 a, T2 b)
@@ -104,6 +103,11 @@ namespace Linq2Oracle.Expressions
 
     static class Function
     {
+        public static SqlGenerator Count()
+        {
+            return sql => sql.Append("COUNT(*)");
+        }
+
         public static SqlGenerator Call<T>(string function, T param1)
             where T : IDbExpression
         {
