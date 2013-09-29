@@ -43,7 +43,7 @@
     <SignAssembly>true</SignAssembly>
   </PropertyGroup>
   <PropertyGroup>
-    <AssemblyOriginatorKeyFile>LINQPad Driver.pfx</AssemblyOriginatorKeyFile>
+    <AssemblyOriginatorKeyFile>LINQPad Driver v2.pfx</AssemblyOriginatorKeyFile>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="LINQPad">
@@ -86,6 +86,7 @@
     <None Include="DevDeploy.bat">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Include="LINQPad Driver v2.pfx" />
     <None Include="LINQPad Driver.pfx" />
   </ItemGroup>
   <ItemGroup>
