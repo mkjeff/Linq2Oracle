@@ -143,7 +143,7 @@ namespace Linq2Oracle
                 string delimiter = string.Empty;
                 foreach (var filter in filters)
                 {
-                    sql.Append(delimiter).Append(filter);
+                    this.Append(delimiter).Append(filter);
                     delimiter = " AND ";
                 }
             }
