@@ -720,7 +720,7 @@ namespace Linq2Oracle
         /// <returns></returns>
         public NullableDbNumber Average<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
         {
-            var exprGen = Function.Call("ROUND", Function.Call("AVG", selector(ColumnDefine)), 25);
+            Action<SqlContext> exprGen = sql => sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)");
             return new NullableDbNumber(
                 valueProvider: () => (decimal?)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));

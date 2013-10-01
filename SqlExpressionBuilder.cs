@@ -121,10 +121,10 @@ namespace Linq2Oracle.Expressions
             return sql => sql.Append(function).Append('(').Append(param1).Append(',').Append(param2).Append(')');
         }
 
-        public static SqlGenerator Call(string function, SqlGenerator sqlGen, int param)
-        {
-            return sql => sql.Append(function).Append('(').Append(sqlGen).Append(',').Append(param).Append(')');
-        }
+        //public static SqlGenerator Call(string function, SqlGenerator param1, int param2)
+        //{
+        //    return sql => sql.Append(function).Append('(').Append(param1).Append(',').Append(param2).Append(')');
+        //}
 
         public static SqlGenerator Call<T1, T2, T3>(string function, T1 param1, T2 param2, T3 param3)
             where T1 : IDbExpression

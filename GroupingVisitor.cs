@@ -121,7 +121,7 @@ namespace Linq2Oracle
                     mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
                     break;
                 case "Average":
-                    _selectionSqlBuffer.AppendFormat("ROUND(AVG({0}),12)", c.TableQuotesColumnName);
+                    _selectionSqlBuffer.AppendFormat("ROUND(AVG({0}),25)", c.TableQuotesColumnName);
                     mi = OracleDataReaderHelper.GetValueGetMethod(m.Type, c.DbType, c.IsNullable);
                     break;
                 case "Max":
