@@ -96,13 +96,17 @@ namespace Linq2Oracle
 
         internal SqlContext AppendParam(OracleDbType dbType, object value)
         {
-            sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, value, ParameterDirection.Input).ParameterName);
+            var paramName = param.Count.ToString();
+            param.Add(paramName, dbType, value, ParameterDirection.Input);
+            sql.Append(':').Append(paramName);
             return this;
         }
 
         internal SqlContext AppendParam(object value)
         {
-            sql.Append(':').Append(param.Add(param.Count.ToString(), value).ParameterName);
+            var paramName = param.Count.ToString();
+            param.Add(paramName, value);
+            sql.Append(':').Append(paramName);
             return this;
         }
 

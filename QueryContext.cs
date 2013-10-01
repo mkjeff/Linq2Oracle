@@ -44,14 +44,13 @@ namespace Linq2Oracle
             get
             {
                 var param = new OracleCommand().Parameters;
-                var sb = new StringBuilder();
-                var sql = new SqlContext(sb, param);
+                var sql = new SqlContext(new StringBuilder(), param);
                 _genSql(sql, "SELECT " + (_closure.Distinct ? "DISTINCT " : string.Empty) + _projection.Value.SelectSql, _closure);
                 sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
                 return new
                 {
-                    SQL = sb.ToString(),
-                    QL_PARAM = param.Cast<OracleParameter>().Select(p => p.Value).ToArray()
+                    SQL = sql.ToString(),
+                    QL_PARAM = param
                 };
             }
         }
