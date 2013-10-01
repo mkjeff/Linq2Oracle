@@ -16,13 +16,13 @@
 using System;
 using System.Diagnostics;
 using System.Text;
-using Linq2Oracle;
 using Oracle.ManagedDataAccess.Client;
-
+using Linq2Oracle;
+using Linq2Oracle.Expressions;
 namespace Test.DataModel {
 <# 
 foreach(var db in new[] {
-		new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="schema"},
+		new{ ConnectionString = @"User Id=username;Password=passwd;data source=//server:port/SID" , Schema="schema"},
 }){
 using (var con = new OracleConnection(db.ConnectionString)) {
 	// Customize.If you need enum type mapping.
@@ -166,14 +166,52 @@ bool IsEnumType(Dictionary<string,Type> enumTypeMap,string tableName,string colu
 }
 
 string ToQueryTypeString(Type t){
-	Type nonNullable= GetNonNullType(t);
-    if(nonNullable==typeof(string))
-		return "Linq2Oracle.String";
-	if(nonNullable.IsEnum)
-		return "Linq2Oracle.Enum<"+ GetFriendlyName(t) + ">";
-	if(nonNullable==typeof(DateTime))
-		return "Linq2Oracle.DateTime<" + GetFriendlyName(t) + ">";
-	return "Linq2Oracle.Number<" + GetFriendlyName(t) + ">";
+    if (t == typeof(string))
+              return "DbString";
+            Type nonNullable = Nullable.GetUnderlyingType(t);
+            if (nonNullable != null)
+            {
+                if (nonNullable.IsEnum)
+                    return "NullableEnum<"+ nonNullable.FullName +">";
+                if (nonNullable == typeof(DateTime))
+                    return "NullableDbDateTime";
+                if (nonNullable == typeof(char))
+                    return  "NullableDbChar";
+                if (nonNullable == typeof(short))
+                    return "NullableDbNumber";
+                if (nonNullable == typeof(int))
+                    return "NullableDbNumber";
+                if (nonNullable == typeof(long))
+                    return "NullableDbNumber";
+                if (nonNullable == typeof(float))
+                    return "NullableDbNumber";
+                if (nonNullable == typeof(double))
+                    return "NullableDbNumber";
+                if (nonNullable == typeof(decimal))
+                    return "NullableDbNumber";
+            }
+            else
+            {
+                if (t.IsEnum)
+                    return "Enum<"+ t.FullName+">";
+                if (t == typeof(System.DateTime))
+                    return "DbDateTime";
+                if (t == typeof(char))
+                    return "DbChar";
+                if (t == typeof(short))
+                    return "DbNumber";
+                if (t == typeof(int))
+                    return "DbNumber";
+                if (t == typeof(long))
+                    return "DbNumber";
+                if (t == typeof(float))
+                    return "DbNumber";
+                if (t == typeof(double))
+                    return "DbNumber";
+                if (t == typeof(decimal))
+                    return "DbNumber";
+            }
+            throw new NotSupportedException("Data type :"+t + " is not supported");
 }
 
 Type OracleType2Clr(Dictionary<string,Type> enumTypeMap, string tableName,string columnName,bool isNullable,string oracleType,decimal length,decimal? precision,decimal? scale) {

@@ -12,7 +12,7 @@
 <#@ import namespace="Oracle.ManagedDataAccess.Client" #>
 <#@ template language="C#v3.5" debug="True" #>
 <# 
-var connectionInfo = new{ ConnectionString = @"User Id=username;Password=password;data source=//host:port/SID" , Schema="schema"};
+var connectionInfo = new{ ConnectionString = @"User Id=username;Password=passwd;data source=//server:port/SID" , Schema="schema"};
 
 using (var con = new OracleConnection(connectionInfo.ConnectionString)) {	
     con.Open();
