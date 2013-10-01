@@ -103,7 +103,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="ExpressionHasher.cs" />
-    <Compile Include="ExpressionVisitor.cs" />
     <Compile Include="GlobalSuppressions.cs" />
     <Compile Include="GroupingContext.cs" />
     <Compile Include="GroupingVisitor.cs" />

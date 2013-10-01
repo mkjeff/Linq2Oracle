@@ -24,7 +24,7 @@ namespace Linq2Oracle
     ///     */ 
     /// }
     /// </summary>
-    sealed class GroupingAggregate : ExpressionVisitor
+    sealed class GroupingAggregate : System.Linq.Expressions.ExpressionVisitor
     {
         static GroupingAggregate() { }
         static readonly ParameterExpression dbReader = Expression.Parameter(typeof(OracleDataReader), "reader");
@@ -64,10 +64,10 @@ namespace Linq2Oracle
             this._keyMember = null;
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m)
+        protected override Expression VisitMember(MemberExpression m)
         {
             if (m.Expression == null)
-                return base.VisitMemberAccess(m);
+                return base.VisitMember(m);
 
             Expression expr = null;
             if (_valueGetters.TryGetValue(m.Member, out expr))
@@ -90,7 +90,7 @@ namespace Linq2Oracle
                 _valueGetters.Add(m.Member, expr);
                 return expr;
             }
-            return base.VisitMemberAccess(m);
+            return base.VisitMember(m);
         }
 
         protected override Expression VisitMethodCall(MethodCallExpression m)
@@ -178,7 +178,7 @@ namespace Linq2Oracle
         //    }
         //}
 
-        sealed class KeySelectorVisitor : ExpressionVisitor
+        sealed class KeySelectorVisitor : System.Linq.Expressions.ExpressionVisitor
         {
             readonly StringBuilder selection;
             readonly Table.Info tableInfo;
@@ -234,12 +234,12 @@ namespace Linq2Oracle
                 }
             }
 
-            protected override NewExpression VisitNew(NewExpression nex)
+            protected override Expression VisitNew(NewExpression nex)
             {
                 return Expression.New(nex.Constructor, ParseNew(nex), nex.Members);
             }
 
-            protected override Expression VisitMemberAccess(MemberExpression m)
+            protected override Expression VisitMember(MemberExpression m)
             {
                 if (m.Expression.Type != Lambda.Parameters[0].Type)
                     throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
@@ -272,7 +272,7 @@ namespace Linq2Oracle
     ///     from ...
     ///     group {GroupKeySql}
     /// </summary>
-    sealed class GroupingKeySelector : ExpressionVisitor
+    sealed class GroupingKeySelector : System.Linq.Expressions.ExpressionVisitor
     {
         static readonly ExpressionCache<GroupingKeySelector> _Cache = new ExpressionCache<GroupingKeySelector>();
         public readonly LambdaExpression KeySelectorExpression;
@@ -343,9 +343,8 @@ namespace Linq2Oracle
             throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + init.ToString());
         }
 
-        protected override NewExpression VisitNew(NewExpression nex)
+        protected override Expression VisitNew(NewExpression nex)
         {
-
             //throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援巢狀類別的Key" + nex.ToString());
             _memberMap = nex.Arguments.Cast<MemberExpression>()
                 .Zip(nex.Members, (arg, member) => new
@@ -361,7 +360,7 @@ namespace Linq2Oracle
             return nex;
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m)
+        protected override Expression VisitMember(MemberExpression m)
         {
             if (m.Expression == null || m.Expression.Type != KeySelectorExpression.Parameters[0].Type)
                 throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());

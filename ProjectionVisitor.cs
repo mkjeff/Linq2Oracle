@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Linq2Oracle
 {
-    sealed class Projection : ExpressionVisitor
+    sealed class Projection : System.Linq.Expressions.ExpressionVisitor
     {
         static Projection() { }
         static readonly ParameterExpression _DbReader = Expression.Parameter(typeof(OracleDataReader), "reader");
@@ -70,13 +70,13 @@ namespace Linq2Oracle
             return new Projection(Table<T>.FullSelectionColumnsString, new Func<T, T>(t => t));
         }
 
-        protected override Expression VisitMemberAccess(MemberExpression m)
+        protected override Expression VisitMember(MemberExpression m)
         {
             if (!IsProjection)
                 return m;
 
             if (m.Expression == null || m.Expression.Type != _paramT.Type)
-                return base.VisitMemberAccess(m);
+                return base.VisitMember(m);
 
             var c = _tableInfo.DbColumnMap[m.Member.Name];
             Expression expr;
