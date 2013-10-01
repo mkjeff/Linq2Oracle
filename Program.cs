@@ -20,7 +20,7 @@ namespace NewNew
             const string connectionString = "User Id=username;Password=passwd;data source=//server:port/SID";
             using (var conn = new OracleConnection(connectionString))
             {
-                var db = new DbContext(conn, Console.Out);
+                var db = new DbContextCode(conn, Console.Out);
 
             }
         }
