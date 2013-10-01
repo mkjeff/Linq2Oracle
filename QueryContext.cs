@@ -61,7 +61,7 @@ namespace Linq2Oracle
         {
             _projection = projector;
             _closure = closure;
-            
+
             if (closure.OriginalSource == null)
                 _closure.OriginalSource = this;
 
@@ -435,7 +435,7 @@ namespace Linq2Oracle
                 {
                     sql.Append(select).MappingAlias(this).Append(" FROM ").Append(TableName).Append(' ').Append(sql.GetAlias(this));
                     foreach (var table in c.Tables)
-                        sql.Append(", (").Append("SELECT *", table).Append(") ").Append(sql.GetAlias(table));
+                        sql.Append(", (").Append("*", table).Append(") ").Append(sql.GetAlias(table));
                     sql.AppendWhere(c.Filters).AppendOrder(c.Orderby);
                 },
                 closure: newC,
@@ -606,10 +606,10 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbDateTime Max(Func<C, Expressions.DbDateTime> selector) 
+        public NullableDbDateTime Max(Func<C, Expressions.DbDateTime> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
-            return new NullableDbDateTime(() =>(System.DateTime?) _AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
@@ -934,7 +934,7 @@ namespace Linq2Oracle
         {
             return ((IEnumerable<TResult>)this).GetEnumerator();
         }
-        #endregion       
+        #endregion
         #region IQueryContext жин√
         public IQueryContext OriginalSource { get { return _closure.OriginalSource; } }
 
@@ -945,7 +945,7 @@ namespace Linq2Oracle
             newC.Orderby = EmptyList<SortDescription>.Instance;
             if (newC.Distinct)
                 selection = "DISTINCT " + selection;
-            _genSql(sql, selection, newC);
+            _genSql(sql, "SELECT " + selection, newC);
         }
 
         void IQueryContext.GenBatchSql(SqlContext sql, OracleParameter refParam)

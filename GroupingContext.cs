@@ -294,7 +294,7 @@ namespace Linq2Oracle
         void GenSql(SqlContext sql)
         {
             sql.Append("SELECT ").Append(_aggregate.Value.SelectionSql).Append(" FROM (")
-                .Append("SELECT " + sql.GetAlias(_context) + ".*", _context)
+                .Append(sql.GetAlias(_context) + ".*", _context)
                 .Append(") ").Append(sql.GetAlias(_context))
                 .Append(" GROUP BY ").Append(_aggregate.Value.GrouipingKeySelector.GroupKeySql).MappingAlias(_context)
                 .AppendHaving(_having);

@@ -61,7 +61,7 @@ namespace Linq2Oracle
                 {
                     sql.Append(select).Append(" FROM ").Append(TableName).Append(' ').Append(sql.GetAlias(this));
                     foreach (var table in c.Tables)
-                        sql.Append(", (").Append("SELECT *",table).Append(") ").Append(sql.GetAlias(table));
+                        sql.Append(", (").Append("*", table).Append(") ").Append(sql.GetAlias(table));
                     sql.AppendWhere(c.Filters).AppendOrder(c.Orderby);
                 },
                 closure: newC,
@@ -83,7 +83,7 @@ namespace Linq2Oracle
         }
         public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(_transparentId),false);
+            return OrderBy(keySelector(_transparentId), false);
         }
         public SelectManyContext<C, T, TResult, _> OrderByDescending(Func<_, IDbExpression> keySelector)
         {
@@ -92,7 +92,7 @@ namespace Linq2Oracle
 
         public SelectManyContext<C, T, TResult, _> ThenBy(Func<_, IDbExpression> keySelector)
         {
-            return OrderBy(keySelector(_transparentId),false);
+            return OrderBy(keySelector(_transparentId), false);
         }
         public SelectManyContext<C, T, TResult, _> ThenByDescending(Func<_, IDbExpression> keySelector)
         {
