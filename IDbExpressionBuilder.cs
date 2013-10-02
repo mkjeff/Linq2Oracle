@@ -1,5 +1,0 @@
-﻿
-namespace Linq2Oracle
-{
-
-}

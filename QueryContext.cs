@@ -12,6 +12,7 @@ using System.Text;
 
 namespace Linq2Oracle
 {
+    using System.Reflection;
     // (sql,selection,c)=>;
     using SqlGenerator = Action<SqlContext, string, Closure>;
 
@@ -263,7 +264,9 @@ namespace Linq2Oracle
             }, ColumnDefine);
         }
 
-        public QueryContext<C, T, TResult> TakeBySum<NUM>(Func<C, IDbNumber> sumBy, Func<C, IDbExpression> partitionBy, long sum) where NUM : struct
+        public QueryContext<C, T, TResult> TakeBySum<NUM, TPartiion>(Func<C, NUM> sumBy, Func<C, TPartiion> partitionBy, long sum)
+            where NUM : IDbNumber
+            where TPartiion : IDbExpression
         {
             if (sum < 0)
                 return this;
@@ -550,7 +553,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Expressions.DbString Max(Func<C, Expressions.DbString> selector)
+        public Expressions.DbString Max(Func<C, DbString> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
             return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
@@ -562,7 +565,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Expressions.DbString Min(Func<C, Expressions.DbString> selector)
+        public Expressions.DbString Min(Func<C, DbString> selector)
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
             return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
@@ -605,7 +608,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbDateTime Max(Func<C, Expressions.DbDateTime> selector)
+        public NullableDbDateTime Max(Func<C, DbDateTime> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
             return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
@@ -617,7 +620,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbDateTime Min(Func<C, Expressions.DbDateTime> selector)
+        public NullableDbDateTime Min(Func<C, DbDateTime> selector)
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
             return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
@@ -654,7 +657,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbTimeSpan Max(Func<C, Expressions.DbTimeSpan> selector)
+        public NullableDbTimeSpan Max(Func<C, DbTimeSpan> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
             return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
@@ -666,7 +669,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbTimeSpan Min(Func<C, Expressions.DbTimeSpan> selector)
+        public NullableDbTimeSpan Min(Func<C, DbTimeSpan> selector)
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
             return new NullableDbTimeSpan(() => (System.TimeSpan?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
@@ -969,6 +972,7 @@ namespace Linq2Oracle
         where C : new()
     {
         static readonly Func<IQueryContext, C> constructor;
+        static readonly MethodInfo dbExprCreator = typeof(SqlExpressionBuilder).GetMethod("Create");
 
         static ColumnExpressionBuilder()
         {
@@ -986,6 +990,7 @@ namespace Linq2Oracle
             //          Column1 = SqlExpressionBuilder.Create<Column1Type>(sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
             //          Column2 = ...
             //      };
+            var dbExprCreator = typeof(SqlExpressionBuilder).GetMethod("Create");
             var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
             var lambda = LambdaExpression.Lambda<Func<IQueryContext, C>>(
                 body: LambdaExpression.MemberInit(
@@ -995,9 +1000,7 @@ namespace Linq2Oracle
                               select (MemberBinding)Expression.Bind(
                                     member: prop.PropertyInfo,
                                     expression: Expression.Call(
-                                        typeof(SqlExpressionBuilder),
-                                        "Create",
-                                        new Type[] { prop.PropertyInfo.PropertyType },
+                                        dbExprCreator.MakeGenericMethod(prop.PropertyInfo.PropertyType),
                                         LambdaExpression.Lambda<Action<SqlContext>>(
                                             body: LambdaExpression.Call(
                                                 LambdaExpression.Call(

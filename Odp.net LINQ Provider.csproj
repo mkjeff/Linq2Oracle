@@ -92,7 +92,6 @@
   <ItemGroup>
     <Compile Include="DbExpression.cs" />
     <Compile Include="ExpressionComparer.cs" />
-    <Compile Include="IDbExpressionBuilder.cs" />
     <Compile Include="QueryContext.cs" />
     <Compile Include="DbEntity.cs" />
     <Compile Include="DbMetaInfo.cs" />

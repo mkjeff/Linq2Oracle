@@ -52,8 +52,6 @@ namespace Linq2Oracle.Expressions
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            if (a.IsNullExpression && b.IsNullExpression)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
             return new SqlBoolean(Operation.Binary(a, ">", b));
         }
 
@@ -61,8 +59,6 @@ namespace Linq2Oracle.Expressions
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            if (a.IsNullExpression && b.IsNullExpression)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
             return new SqlBoolean(Operation.Binary(a, ">=", b));
         }
 
@@ -70,8 +66,6 @@ namespace Linq2Oracle.Expressions
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            if (a.IsNullExpression && b.IsNullExpression)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
             return new SqlBoolean(Operation.Binary(a, "<", b));
         }
 
@@ -79,8 +73,6 @@ namespace Linq2Oracle.Expressions
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            if (a.IsNullExpression && b.IsNullExpression)
-                throw new ArgumentNullException("a and b", "can't apply comparison operator with NULL");
             return new SqlBoolean(Operation.Binary(a, "<=", b));
         }
     }

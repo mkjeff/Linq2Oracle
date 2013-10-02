@@ -87,10 +87,10 @@ namespace Linq2Oracle
 
         internal SqlContext Append<T>(T expression) where T : IDbExpression
         {
-            if (expression == null)
-                throw new ArgumentNullException("expression");
-
-            expression.Build(this);
+            if (expression.IsNullExpression)
+                sql.Append("NULL");
+            else
+                expression.Build(this);
             return this;
         }
 
