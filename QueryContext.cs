@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Linq2Oracle
 {
+    using System.Reflection;
     // (sql,selection,c)=>;
     using SqlGenerator = Action<SqlContext, string, Closure>;
 
@@ -866,9 +866,9 @@ namespace Linq2Oracle
                     var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
                     using (var cmd = Db.CreateCommand())
                     {
-                        var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (EXISTS(SELECT NULL FROM ("), cmd.Parameters);
-                        _genSql(sql, "SELECT *", cc);
-                        sql.Append("))) THEN 1 ELSE 0 END value FROM DUAL");
+                        var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (EXISTS("), cmd.Parameters);
+                        _genSql(sql, "SELECT NULL", cc);
+                        sql.Append(")) THEN 1 ELSE 0 END value FROM DUAL");
 
                         cmd.CommandText = sql.ToString();
                         return (decimal)Db.ExecuteScalar(cmd) == 1;
@@ -896,20 +896,33 @@ namespace Linq2Oracle
         #endregion
         #region All
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        public bool All(Func<C, SqlBoolean> predicate)
+        public BooleanContext All(Func<C, SqlBoolean> predicate)
         {
             var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)
-                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, "All±ø¥ó¦³»~");
-            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
-            using (var cmd = Db.CreateCommand())
-            {
-                var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (NOT EXISTS(SELECT * FROM ("), cmd.Parameters);
-                _genSql(sql, "SELECT *", cc);
-                sql.Append(") a WHERE NOT (").Append(filter).Append("))) THEN 1 ELSE 0 END value FROM DUAL");
-                cmd.CommandText = sql.ToString();
-                return (decimal)Db.ExecuteScalar(cmd) == 1;
-            }
+                return new BooleanContext(() => false, new SqlBoolean());
+
+            var cc = _closure; 
+            cc.Orderby = EmptyList<SortDescription>.Instance;
+            cc.Filters = new List<SqlBoolean>(cc.Filters) { !filter };
+            return new BooleanContext(
+                valueProvider: () =>
+                {
+                    using (var cmd = Db.CreateCommand())
+                    {
+                        var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (NOT EXISTS("), cmd.Parameters);
+                        _genSql(sql, "SELECT NULL", cc);
+                        sql.Append(")) THEN 1 ELSE 0 END value FROM DUAL");
+                        cmd.CommandText = sql.ToString();
+                        return (decimal)Db.ExecuteScalar(cmd) == 1;
+                    }
+                },
+                predicate: new SqlBoolean(sql =>
+                {
+                    sql.Append("NOT EXISTS(");
+                    _genSql(sql, "SELECT NULL", cc);
+                    sql.Append(") ");
+                }));
         }
         #endregion
         #region ForUpdate(Row Lock)
