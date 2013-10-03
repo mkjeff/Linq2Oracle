@@ -15,8 +15,6 @@ namespace Linq2Oracle.Expressions
 
     public interface IDbNumber : IDbExpression { }
 
-    public interface INullableExpression<T> : IDbExpression<T?> where T : struct { }
-
     #region String
     public struct DbString : IDbExpression<string>
     {
@@ -278,7 +276,7 @@ namespace Linq2Oracle.Expressions
         #region Conversion Operator
         public static implicit operator Enum<T>(T value)
         {
-            return SqlParameter.Create(value, OracleDbType.Varchar2).Create<Enum<T>>();
+            return SqlParameter.Create(Enum.GetName(typeof(T), value)).Create<Enum<T>>();
         }
         #endregion
         #region Comparision Operator
@@ -708,7 +706,7 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region Char?
-    public struct NullableDbChar : INullableExpression<char>
+    public struct NullableDbChar : IDbExpression<char?>
     {
         public DbChar GetValueOrDefault(DbChar defaultValue)
         {
@@ -763,7 +761,7 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region Enum?
-    public struct NullableEnum<T> :  INullableExpression<T> where T : struct
+    public struct NullableEnum<T> : IDbExpression<T?> where T : struct
     {
         public Enum<T> GetValueOrDefault(Enum<T> defaultValue)
         {
@@ -775,7 +773,7 @@ namespace Linq2Oracle.Expressions
             if (!value.HasValue)
                 return new NullableEnum<T>();
 
-            return SqlParameter.Create(value.Value, OracleDbType.Varchar2).Create<NullableEnum<T>>();
+            return SqlParameter.Create(Enum.GetName(typeof(T), value.Value)).Create<NullableEnum<T>>();
         }
         #region Comparision Operators
         public static SqlBoolean operator ==(NullableEnum<T> a, NullableEnum<T> b)
@@ -817,7 +815,7 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region DateTime?
-    public struct NullableDbDateTime : INullableExpression<System.DateTime>
+    public struct NullableDbDateTime : IDbExpression<DateTime?>
     {
         readonly Func<System.DateTime?> _valueProvider;
 
@@ -895,7 +893,7 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region TimeSpan?
-    public struct NullableDbTimeSpan : INullableExpression<System.TimeSpan>
+    public struct NullableDbTimeSpan : IDbExpression<TimeSpan?>
     {
         readonly Func<System.TimeSpan?> _valueProvider;
 
@@ -969,12 +967,12 @@ namespace Linq2Oracle.Expressions
 
     #region Number?
     public struct NullableDbNumber : IDbNumber,
-        INullableExpression<short>,
-        INullableExpression<int>,
-        INullableExpression<long>,
-        INullableExpression<float>,
-        INullableExpression<double>,
-        INullableExpression<decimal>
+        IDbExpression<short?>,
+        IDbExpression<int?>,
+        IDbExpression<long?>,
+        IDbExpression<float?>,
+        IDbExpression<double?>,
+        IDbExpression<decimal?>
     {
         readonly Func<decimal?> _valueProvider;
 
@@ -1025,14 +1023,14 @@ namespace Linq2Oracle.Expressions
             return value.ToNullable();
         }
 
-        static NullableDbNumber Create<T>(T? value) where T:struct
+        static NullableDbNumber Create<T>(T? value) where T : struct
         {
             if (!value.HasValue)
                 return new NullableDbNumber();
 
             return SqlParameter.Create(value.Value).Create<NullableDbNumber>();
         }
-       
+
         public static implicit operator NullableDbNumber(short? value)
         {
             return Create(value);

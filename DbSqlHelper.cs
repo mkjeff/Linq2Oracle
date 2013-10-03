@@ -25,11 +25,14 @@ namespace Linq2Oracle
         #endregion
 
         #region Where Column In (...)
-        public static SqlBoolean In<T>(this IDbExpression<T> @this, IEnumerable<T> values)
+        public static SqlBoolean In<E, T>(this E @this, IEnumerable<T> values)
+            where E : IDbExpression<T>
         {
             return @this.In(values.ToArray());
         }
-        public static SqlBoolean In<T>(this IDbExpression<T> @this, params T[] values)
+
+        public static SqlBoolean In<E, T>(this E @this, T[] values)
+            where E : IDbExpression<T>
         {
             return new SqlBoolean(sql =>
             {
@@ -44,6 +47,7 @@ namespace Linq2Oracle
 
                 sql.Append(@this).Append(" IN (");
 
+                bool isEnum = typeof(T).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
@@ -51,8 +55,10 @@ namespace Linq2Oracle
 
                     if (t == null)
                         sql.Append("NULL");
+                    else if (isEnum)
+                        sql.AppendParam(OracleDbType.Varchar2, t);
                     else
-                        sql.AppendParam( t);
+                        sql.AppendParam(t);
                     delimiter = ", ";
                 }
 
@@ -60,15 +66,16 @@ namespace Linq2Oracle
             });
         }
 
-        public static SqlBoolean In<T>(this IDbExpression<T> @this, IQueryContext<T> subquery)
+        public static SqlBoolean In<E, T>(this E @this, IQueryContext<T> subquery)
+            where E : IDbExpression<T>
         {
             return new SqlBoolean(sql => sql.Append(@this).Append(" IN (").AppendQuery(subquery).Append(')'));
         }
         #endregion
         #region Where (Column1,Column2) In (...)
-        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, params Tuple<T1, T2>[] values)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
+        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, Tuple<T1, T2>[] values)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
         {
             return new SqlBoolean(sql =>
             {
@@ -80,17 +87,21 @@ namespace Linq2Oracle
 
                 sql.Append('(').Append(@this.Item1).Append(',').Append(@this.Item2).Append(") IN (");
 
+                bool t1IsEnum = typeof(T1).IsEnum;
+                bool t2IsEnum = typeof(T2).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
                     sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
+                    else if (t1IsEnum) sql.AppendParam(OracleDbType.Varchar2, t.Item1);
                     else sql.AppendParam(t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
+                    else if (t2IsEnum) sql.AppendParam(OracleDbType.Varchar2, t.Item2);
                     else sql.AppendParam(t.Item2);
 
                     sql.Append(')');
@@ -102,16 +113,16 @@ namespace Linq2Oracle
             });
         }
 
-        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IEnumerable<Tuple<T1, T2>> values)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
+        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IEnumerable<Tuple<T1, T2>> values)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
         {
             return @this.In(values.ToArray());
         }
 
-        public static SqlBoolean In<C1, C2, T1, T2>(this Tuple<C1, C2> @this, IQueryContext<Tuple<T1, T2>> subquery)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
+        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IQueryContext<Tuple<T1, T2>> subquery)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
         {
             return new SqlBoolean(sql =>
                 sql.Append('(')
@@ -122,10 +133,10 @@ namespace Linq2Oracle
         }
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
-        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, params Tuple<T1, T2, T3>[] values)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
-            where C3 : IDbExpression<T3>
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, Tuple<T1, T2, T3>[] values)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
+            where E3 : IDbExpression<T3>
         {
             return new SqlBoolean(sql =>
             {
@@ -141,23 +152,29 @@ namespace Linq2Oracle
                     .Append(@this.Item3)
                 .Append(") IN (");
 
+                bool t1IsEnum = typeof(T1).IsEnum;
+                bool t2IsEnum = typeof(T2).IsEnum;
+                bool t3IsEnum = typeof(T3).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
                     sql.Append(delimiter).Append('(');
 
                     if (t.Item1 == null) sql.Append("NULL");
-                    else sql.AppendParam( t.Item1);
+                    else if (t1IsEnum) sql.AppendParam(OracleDbType.Varchar2, t.Item1);
+                    else sql.AppendParam(t.Item1);
 
                     sql.Append(',');
 
                     if (t.Item2 == null) sql.Append("NULL");
-                    else sql.AppendParam( t.Item2);
+                    else if (t2IsEnum) sql.AppendParam(OracleDbType.Varchar2, t.Item2);
+                    else sql.AppendParam(t.Item2);
 
                     sql.Append(',');
 
                     if (t.Item3 == null) sql.Append("NULL");
-                    else sql.AppendParam( t.Item3);
+                    else if (t3IsEnum) sql.AppendParam(OracleDbType.Varchar2, t.Item3);
+                    else sql.AppendParam(t.Item3);
 
                     sql.Append(')');
                     delimiter = ", ";
@@ -166,18 +183,18 @@ namespace Linq2Oracle
             });
         }
 
-        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
-            where C3 : IDbExpression<T3>
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
+            where E3 : IDbExpression<T3>
         {
             return @this.In(values.ToArray());
         }
 
-        public static SqlBoolean In<C1, C2, C3, T1, T2, T3>(this Tuple<C1, C2, C3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
-            where C1 : IDbExpression<T1>
-            where C2 : IDbExpression<T2>
-            where C3 : IDbExpression<T3>
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
+            where E1 : IDbExpression<T1>
+            where E2 : IDbExpression<T2>
+            where E3 : IDbExpression<T3>
         {
             return new SqlBoolean(sql =>
                 sql.Append('(')

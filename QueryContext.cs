@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Linq.Expressions;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace Linq2Oracle
 {
-    using System.Reflection;
     // (sql,selection,c)=>;
     using SqlGenerator = Action<SqlContext, string, Closure>;
 

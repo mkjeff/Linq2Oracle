@@ -85,7 +85,7 @@ namespace Linq2Oracle
 
         object CheckPkNull(string columnName, object value)
         {
-            if (value == DBNull.Value)
+            if (value == null)
                 throw new DalException(DbErrorCode.E_DB_PK_NULL, string.Format("主鍵{0}不能為NULL", columnName));
             return value;
         }
@@ -116,23 +116,22 @@ namespace Linq2Oracle
         {
             using (var cmd = this.CreateCommand())
             {
-                var sb = new StringBuilder("BEGIN\n", 512 * querys.Length);
-                var sql = new SqlContext(sb, cmd.Parameters);
+                var sql = new SqlContext(new StringBuilder("BEGIN\n", 512 * querys.Length), cmd.Parameters);
                 bool valid = false;
                 foreach (var q in querys)
                     if (q.Db == this)
                     {
                         var refParam = cmd.Parameters.Add(cmd.Parameters.Count.ToString(), OracleDbType.RefCursor, ParameterDirection.Output);
-                        sb.Append("OPEN :")
+                        sql.Append("OPEN :")
                           .Append(refParam.ParameterName)
                           .Append(" FOR ");
                         q.GenBatchSql(sql, refParam);
-                        sb.Append(";\n");
+                        sql.Append(";\n");
                         valid = true;
                     }
                 if (!valid) return;
-                sb.Append("END;");
-                cmd.CommandText = sb.ToString();
+                sql.Append("END;");
+                cmd.CommandText = sql.ToString();
                 ExecuteNonQuery(cmd);
             }
         }
@@ -153,7 +152,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        c.GetDbValue(t),
+                        c.GetValue(t),
                         ParameterDirection.Input);
 
                 if (ExecuteNonQuery(cmd) != 1)
@@ -189,7 +188,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         column.DbType,
                         column.Size,
-                        list.ConvertAll(t => column.GetDbValue(t)),
+                        list.ConvertAll(t => column.GetValue(t)),
                         ParameterDirection.Input);
 
                 ExecuteNonQuery(cmd);
@@ -221,7 +220,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        CheckPkNull(c.ColumnName, c.GetDbValue(t)),
+                        CheckPkNull(c.ColumnName, c.GetValue(t)),
                         ParameterDirection.Input);
 
                 t.IsLoaded = false;
@@ -272,7 +271,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        list.ConvertAll(t => CheckPkNull(c.ColumnName, c.GetDbValue(t))),
+                        list.ConvertAll(t => CheckPkNull(c.ColumnName, c.GetValue(t))),
                         ParameterDirection.Input);
 
                 return ExecuteNonQuery(cmd);
@@ -315,7 +314,7 @@ namespace Linq2Oracle
                     {
                         if (i != 0) sql.Append(',');
                         var c = Table<T>.DbColumns[t.ChangedMap.Keys[i]];
-                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.GetDbValue(t));
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.GetValue(t));
                     }
 
                     sql.AppendLine().Append("WHERE ");
@@ -324,7 +323,7 @@ namespace Linq2Oracle
                     {
                         if (i != 0) sql.Append(" AND ");
                         var c = Table<T>.PkColumns[i];
-                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)));
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)));
                     }
 
                     if (Table<T>.FixedColumns.Length != 0)
@@ -337,7 +336,7 @@ namespace Linq2Oracle
                             if (i != 0) sql.Append(" AND ");
                             var c = Table<T>.FixedColumns[i];
                             sql.Append(c.QuotesColumnName);
-                            if ((value = t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)) == DBNull.Value)
+                            if ((value = t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)) == null)
                                 sql.Append(" IS NULL");
                             else
                                 sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
@@ -354,7 +353,7 @@ namespace Linq2Oracle
                             cmd.Parameters.Count.ToString(),
                             c.DbType,
                             c.Size,
-                            c.GetDbValue(t),
+                            c.GetValue(t),
                             ParameterDirection.Input);
 
                     foreach (var c in Table<T>.PkColumns)
@@ -362,7 +361,7 @@ namespace Linq2Oracle
                             cmd.Parameters.Count.ToString(),
                             c.DbType,
                             c.Size,
-                            CheckPkNull(c.ColumnName, c.GetDbValue(t)),
+                            CheckPkNull(c.ColumnName, c.GetValue(t)),
                             ParameterDirection.Input);
 
                     if (Table<T>.PkColumns.Length == 0)
@@ -373,7 +372,7 @@ namespace Linq2Oracle
                             if (i != 0) sql.Append(" AND ");
                             var c = Table<T>.FixedColumns[i];
                             sql.Append(c.QuotesColumnName);
-                            if ((value = c.GetDbValue(t)) == DBNull.Value)
+                            if ((value = c.GetValue(t)) == null)
                                 sql.Append(" IS NULL");
                             else
                                 sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
@@ -451,7 +450,7 @@ namespace Linq2Oracle
                             {
                                 if (i != 0) sql.Append(',');
                                 var c = Table<T>.DbColumns[changedColumns.Keys[i]];
-                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, g.Select(t => c.GetDbValue(t)).ToArray());
+                                sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, g.Select(t => c.GetValue(t)).ToArray());
                             }
                             sql.AppendLine().Append("WHERE ");
 
@@ -460,7 +459,7 @@ namespace Linq2Oracle
                                 if (i != 0) sql.Append(" AND ");
                                 var c = Table<T>.PkColumns[i];
                                 sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
-                                    g.Select(t => CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t))).ToArray());
+                                    g.Select(t => CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t))).ToArray());
                             }
 
                             if (Table<T>.FixedColumns.Length != 0)
@@ -471,11 +470,11 @@ namespace Linq2Oracle
                                 {
                                     if (i != 0) sql.Append(" AND ");
                                     var c = Table<T>.FixedColumns[i];
-                                    if ((g.First().ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(g.First())) == DBNull.Value)
+                                    if ((g.First().ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(g.First())) == null)
                                         sql.Append(c.QuotesColumnName).Append(" IS NULL");
                                     else
                                         sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
-                                            g.Select(t => t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetDbValue(t)).ToArray());
+                                            g.Select(t => t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)).ToArray());
                                 }
                             }
 
@@ -505,7 +504,7 @@ namespace Linq2Oracle
                                 cmd.Parameters.Count.ToString(),
                                 c.DbType,
                                 c.Size,
-                                group.Select(t => c.GetDbValue(t)).ToArray(),
+                                group.Select(t => c.GetValue(t)).ToArray(),
                                 ParameterDirection.Input);
 
                         foreach (var c in Table<T>.PkColumns)
@@ -513,7 +512,7 @@ namespace Linq2Oracle
                                 cmd.Parameters.Count.ToString(),
                                 c.DbType,
                                 c.Size,
-                                group.Select(t => CheckPkNull(c.ColumnName, c.GetDbValue(t))).ToArray(),
+                                group.Select(t => CheckPkNull(c.ColumnName, c.GetValue(t))).ToArray(),
                                 ParameterDirection.Input);
 
                         if (Table<T>.PkColumns.Length == 0)
@@ -523,8 +522,8 @@ namespace Linq2Oracle
                                 var c = Table<T>.FixedColumns[i];
                                 sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, group.Select(t =>
                                 {
-                                    object value = c.GetDbValue(t);
-                                    if (value == DBNull.Value) throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "無載入模式下的批次更新作業且沒有主鍵情況下而使用樂觀同步欄位當做更新條件時,欄位值不能為NULL");
+                                    object value = c.GetValue(t);
+                                    if (value == null) throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "無載入模式下的批次更新作業且沒有主鍵情況下而使用樂觀同步欄位當做更新條件時,欄位值不能為NULL");
                                     return value;
                                 }).ToArray());
                             }
@@ -570,7 +569,7 @@ namespace Linq2Oracle
                         var y = Ys.Current;
                         if (x.Key != y.Key)
                             return false;
-                        if (NullableFixedColumns.Contains(x.Key) && (x.Value == DBNull.Value) != (y.Value == DBNull.Value))
+                        if (NullableFixedColumns.Contains(x.Key) && (x.Value == null) != (y.Value == null))
                             return false;
                     }
                 }
@@ -623,7 +622,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        c.GetDbValue(t),
+                        c.GetValue(t),
                         ParameterDirection.Input);
                 #endregion
                 #region Update
@@ -632,7 +631,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        c.GetDbValue(t),
+                        c.GetValue(t),
                         ParameterDirection.Input);
                 #endregion
                 #region Insert
@@ -641,7 +640,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        c.GetDbValue(t),
+                        c.GetValue(t),
                         ParameterDirection.Input);
                 #endregion
                 if (ExecuteNonQuery(cmd) != -1)
@@ -692,7 +691,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        list.ConvertAll(t => c.GetDbValue(t)),
+                        list.ConvertAll(t => c.GetValue(t)),
                         ParameterDirection.Input);
                 #endregion
                 #region Update
@@ -701,7 +700,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        list.ConvertAll(t => c.GetDbValue(t)),
+                        list.ConvertAll(t => c.GetValue(t)),
                         ParameterDirection.Input);
                 #endregion
                 #region Insert
@@ -710,7 +709,7 @@ namespace Linq2Oracle
                         cmd.Parameters.Count.ToString(),
                         c.DbType,
                         c.Size,
-                        list.ConvertAll(t => c.GetDbValue(t)),
+                        list.ConvertAll(t => c.GetValue(t)),
                         ParameterDirection.Input);
                 #endregion
                 if (ExecuteNonQuery(cmd) != -1)

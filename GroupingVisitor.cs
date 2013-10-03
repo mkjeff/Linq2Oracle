@@ -325,10 +325,10 @@ namespace Linq2Oracle
                 string delimiter = string.Empty;
                 foreach (var c in _memberMap.Values)
                 {
-                    var value = c.GetDbValue(groupKey);
+                    var value = c.GetValue(groupKey);
                     sql.Append(delimiter);
                     sql.Append("t0.").Append(c.QuotesColumnName);
-                    if (value == DBNull.Value)
+                    if (value == null)
                         sql.Append("IS NULL");
                     else
                         sql.Append(" = ").AppendParam(c.DbType, value);

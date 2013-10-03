@@ -47,7 +47,7 @@ namespace Linq2Oracle
 
             if (!_changedMap.ContainsKey(c.ColumnIndex))
             {
-                _changedMap.Add(c.ColumnIndex, c.GetDbValue(this));
+                _changedMap.Add(c.ColumnIndex, c.GetValue(this));
                 NotifyPropertyChanged("IsChanged");
             }
         }
