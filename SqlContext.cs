@@ -27,7 +27,7 @@ namespace Linq2Oracle
             this.param = param;
         }
 
-        internal string GetAlias(IQueryContext query)
+        public string GetAlias(IQueryContext query)
         {
             string alias = null;
             if (_alias.TryGetValue(query.OriginalSource, out alias))
@@ -61,7 +61,7 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext Append(string str)
+        public SqlContext Append(string str)
         {
             sql.Append(str);
             return this;

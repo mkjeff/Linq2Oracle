@@ -163,21 +163,6 @@ namespace Linq2Oracle
         }
 
         #region Inner Type
-        //sealed class AggregateColumnVisitor : ExpressionVisitor
-        //{
-        //    public string ColumnName { get; private set; }
-        //    internal AggregateColumnVisitor(Expression expr)
-        //    {
-        //        base.Visit(expr);
-        //    }
-
-        //    protected override Expression VisitMemberAccess(MemberExpression m)
-        //    {
-        //        ColumnName = m.Member.Name;
-        //        return m;
-        //    }
-        //}
-
         sealed class KeySelectorVisitor : System.Linq.Expressions.ExpressionVisitor
         {
             readonly StringBuilder selection;

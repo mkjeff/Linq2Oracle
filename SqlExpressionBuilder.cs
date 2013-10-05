@@ -22,7 +22,7 @@ namespace Linq2Oracle.Expressions
             if (b.IsNullExpression)
                 return a.IsNull();
 
-            return new SqlBoolean(Operation.Binary(a, "=", b));
+            return new SqlBoolean(Operatior.Binary(a, "=", b));
         }
 
         public static SqlBoolean NotEquals<T1, T2>(this T1 a, T2 b)
@@ -35,7 +35,7 @@ namespace Linq2Oracle.Expressions
             if (b.IsNullExpression)
                 return a.IsNotNull();
 
-            return new SqlBoolean(Operation.Binary(a, "<>", b));
+            return new SqlBoolean(Operatior.Binary(a, "<>", b));
         }
 
         public static SqlBoolean IsNull<T>(this T a) where T : IDbExpression
@@ -52,38 +52,38 @@ namespace Linq2Oracle.Expressions
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            return new SqlBoolean(Operation.Binary(a, ">", b));
+            return new SqlBoolean(Operatior.Binary(a, ">", b));
         }
 
         public static SqlBoolean GreatThanOrEquals<T1, T2>(this T1 a, T2 b)
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            return new SqlBoolean(Operation.Binary(a, ">=", b));
+            return new SqlBoolean(Operatior.Binary(a, ">=", b));
         }
 
         public static SqlBoolean LessThan<T1, T2>(this T1 a, T2 b)
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            return new SqlBoolean(Operation.Binary(a, "<", b));
+            return new SqlBoolean(Operatior.Binary(a, "<", b));
         }
 
         public static SqlBoolean LessThanOrEquals<T1, T2>(this T1 a, T2 b)
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            return new SqlBoolean(Operation.Binary(a, "<=", b));
+            return new SqlBoolean(Operatior.Binary(a, "<=", b));
         }
     }
 
-    static class Operation
+    static class Operatior
     {
         public static SqlGenerator Binary<T1,T2>(T1 a, string binaryOperator, T2 b)
             where T1 : IDbExpression
             where T2 : IDbExpression
         {
-            return sql => sql.Append(a).Append(' ').Append(binaryOperator).Append(' ').Append(b);
+            return sql => sql.Append('(').Append(a).Append(' ').Append(binaryOperator).Append(' ').Append(b).Append(')');
         }
 
         public static SqlGenerator Unary<T>(string unaryOperator, T a)

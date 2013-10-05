@@ -71,7 +71,7 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbString operator +(DbString a, DbString b)
         {
-            return Operation.Binary(a, "||", b).Create<DbString>();
+            return Operatior.Binary(a, "||", b).Create<DbString>();
         }
         #endregion
         #region Methods
@@ -118,7 +118,7 @@ namespace Linq2Oracle.Expressions
         public SqlBoolean Like(DbString pattern)
         {
             var @this = this;
-            return new SqlBoolean(Operation.Binary(this, " LIKE ", pattern));
+            return new SqlBoolean(Operatior.Binary(this, " LIKE ", pattern));
         }
 
         public SqlBoolean Equals(DbString other)
@@ -373,7 +373,7 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbTimeSpan operator -(DbDateTime a, DbDateTime b)
         {
-            return Operation.Binary(a, "-", b).Create<DbTimeSpan>();
+            return Operatior.Binary(a, "-", b).Create<DbTimeSpan>();
         }
         #endregion
         #region Methods
@@ -456,12 +456,12 @@ namespace Linq2Oracle.Expressions
 
         public static DbTimeSpan operator +(DbTimeSpan a, DbTimeSpan b)
         {
-            return Operation.Binary(a, "+", b).Create<DbTimeSpan>();
+            return Operatior.Binary(a, "+", b).Create<DbTimeSpan>();
         }
 
         public static DbTimeSpan operator -(DbTimeSpan a, DbTimeSpan b)
         {
-            return Operation.Binary(a, "-", b).Create<DbTimeSpan>();
+            return Operatior.Binary(a, "-", b).Create<DbTimeSpan>();
         }
         #endregion
         #region Methods
@@ -647,32 +647,32 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static DbNumber operator +(DbNumber a)
         {
-            return Operation.Unary("+", a).Create<DbNumber>();
+            return Operatior.Unary("+", a).Create<DbNumber>();
         }
 
         public static DbNumber operator -(DbNumber a)
         {
-            return Operation.Unary("-", a).Create<DbNumber>();
+            return Operatior.Unary("-", a).Create<DbNumber>();
         }
 
         public static DbNumber operator +(DbNumber a, DbNumber b)
         {
-            return Operation.Binary(a, "+", b).Create<DbNumber>();
+            return Operatior.Binary(a, "+", b).Create<DbNumber>();
         }
 
         public static DbNumber operator -(DbNumber a, DbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<DbNumber>();
+            return Operatior.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator *(DbNumber a, DbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<DbNumber>();
+            return Operatior.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator /(DbNumber a, DbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<DbNumber>();
+            return Operatior.Binary(a, "-", b).Create<DbNumber>();
         }
 
         public static DbNumber operator %(DbNumber a, DbNumber b)
@@ -850,7 +850,7 @@ namespace Linq2Oracle.Expressions
 
         public static NullableDbTimeSpan operator -(NullableDbDateTime a, NullableDbDateTime b)
         {
-            return Operation.Binary(a, " - ", b).Create<NullableDbTimeSpan>();
+            return Operatior.Binary(a, " - ", b).Create<NullableDbTimeSpan>();
         }
 
         #region Comparision Operators
@@ -1095,32 +1095,32 @@ namespace Linq2Oracle.Expressions
         #region Custom Operator
         public static NullableDbNumber operator +(NullableDbNumber a)
         {
-            return Operation.Unary("+", a).Create<NullableDbNumber>();
+            return Operatior.Unary("+", a).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator -(NullableDbNumber a)
         {
-            return Operation.Unary("-", a).Create<NullableDbNumber>();
+            return Operatior.Unary("-", a).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator +(NullableDbNumber a, NullableDbNumber b)
         {
-            return Operation.Binary(a, "+", b).Create<NullableDbNumber>();
+            return Operatior.Binary(a, "+", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator -(NullableDbNumber a, NullableDbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
+            return Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator *(NullableDbNumber a, NullableDbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
+            return Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
         }
 
         public static NullableDbNumber operator /(NullableDbNumber a, NullableDbNumber b)
         {
-            return Operation.Binary(a, "-", b).Create<NullableDbNumber>();
+            return Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
         }
         #endregion
         #region IDbExpression

@@ -22,7 +22,7 @@ namespace Linq2Oracle
     /// <typeparam name="T">Table Entity Type</typeparam>
     /// <typeparam name="C">Table Column Definition Type</typeparam>
     /// <typeparam name="TResult">Projection Result Type</typeparam>
-    [DebuggerDisplay("¬d¸ß {typeof(T).Name,nq}")]
+    [DebuggerDisplay("Query {typeof(T).Name,nq}")]
     public class QueryContext<C, T, TResult> : IQueryContext, IQueryContext<TResult>
         where T : DbEntity
         where C : class,new()
@@ -73,7 +73,7 @@ namespace Linq2Oracle
                     .AppendOrder(c.Orderby);
             });
 
-            ColumnDefine = columnDefine ?? ColumnExpressionBuilder<T, C>.Create(this);
+            ColumnDefine = columnDefine ?? EntityTable<T, C>.Create(this);
             _data = EnumerableEx.Using(() => Db.CreateCommand(), cmd =>
             {
                 var sql = new SqlContext(new StringBuilder(128), cmd.Parameters);
@@ -980,47 +980,55 @@ namespace Linq2Oracle
         #endregion
     }
 
-    static class ColumnExpressionBuilder<T, C>
+    /// <summary>
+    /// Entity LINQ Queryable Object 
+    /// </summary>
+    /// <typeparam name="T">Entity Type</typeparam>
+    /// <typeparam name="C">This type is used for representation of SQL expression clause in WHERE, ORDER BY and HAVING</typeparam>
+    public sealed class EntityTable<T, C> : QueryContext<C, T, T>
         where T : DbEntity
-        where C : new()
+        where C : class,new()
     {
+        #region Static Members
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         static readonly Func<IQueryContext, C> constructor;
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         static readonly MethodInfo dbExprCreator = typeof(SqlExpressionBuilder).GetMethod("Create");
 
-        static ColumnExpressionBuilder()
-        {
-            var properties = from prop in typeof(C).GetProperties()
-                             where typeof(IDbExpression).IsAssignableFrom(prop.PropertyType)
-                             where Table<T>.DbColumnMap.ContainsKey(prop.Name)
-                             select new
-                             {
-                                 PropertyInfo = prop,
-                                 ColumnInfo = Table<T>.DbColumnMap[prop.Name]
-                             };
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        static readonly MethodInfo sqlGetAlias = typeof(SqlContext).GetMethod("GetAlias");
 
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        static readonly MethodInfo sqlAppend = typeof(SqlContext).GetMethod("Append", new Type[] { typeof(string) });
+
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        static readonly Lazy<Projection> identityProjection = new Lazy<Projection>(() => Projection.Identity<T>());
+
+        static EntityTable()
+        {
             //var lambda = (IQueryContext query)=> 
             //      new C {
-            //          Column1 = SqlExpressionBuilder.Create<Column1Type>(sql => sql.Append(sql.GetAlias(query).Append('.').Append(column1.QuotesColumnName)),
+            //          Column1 = SqlExpressionBuilder.Create<Column1Type>((SqlContext sql) => sql.Append(sql.GetAlias(query)).Append('.').Append(column1.QuotesColumnName),
             //          Column2 = ...
             //      };
-            var dbExprCreator = typeof(SqlExpressionBuilder).GetMethod("Create");
             var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
             var lambda = LambdaExpression.Lambda<Func<IQueryContext, C>>(
                 body: LambdaExpression.MemberInit(
                     newExpression: LambdaExpression.New(typeof(C)),
-                    bindings: from prop in properties
+                    bindings: from prop in typeof(C).GetProperties()
+                              where typeof(IDbExpression).IsAssignableFrom(prop.PropertyType)
+                              where Table<T>.DbColumnMap.ContainsKey(prop.Name)
                               let sql = LambdaExpression.Parameter(typeof(SqlContext), "sql")
                               select (MemberBinding)Expression.Bind(
-                                    member: prop.PropertyInfo,
+                                    member: prop,
                                     expression: Expression.Call(
-                                        dbExprCreator.MakeGenericMethod(prop.PropertyInfo.PropertyType),
+                                        dbExprCreator.MakeGenericMethod(prop.PropertyType),
                                         LambdaExpression.Lambda<Action<SqlContext>>(
-                                            body: LambdaExpression.Call(
-                                                LambdaExpression.Call(
-                                                    LambdaExpression.Call(sql,
-                                                        "Append", null, LambdaExpression.Call(sql, "GetAlias", null, query)),
-                                                        "Append", null, LambdaExpression.Constant('.')),
-                                                        "Append", null, LambdaExpression.Constant(prop.ColumnInfo.QuotesColumnName)),
+                                            body: LambdaExpression.Call(LambdaExpression.Call(LambdaExpression.Call(
+                                                   sql, sqlAppend, LambdaExpression.Call(sql, sqlGetAlias, query)),
+                                                        sqlAppend, LambdaExpression.Constant(".")),
+                                                        sqlAppend, LambdaExpression.Constant(Table<T>.DbColumnMap[prop.Name].QuotesColumnName)),
                                             parameters: sql
                                         )
                                     )
@@ -1039,30 +1047,17 @@ namespace Linq2Oracle
             //{
             //    DbColumn c;
             //    if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) ||
-            //        !typeof(ISqlExpressionBuilder).IsAssignableFrom(prop.PropertyType))
+            //        !typeof(IDbExpression).IsAssignableFrom(prop.PropertyType))
             //        continue;
 
-            //    var value = (ISqlExpressionBuilder)Activator.CreateInstance(prop.PropertyType);
-            //    value.Init(c.DbType, sql => sql.Append(sql.GetAlias(query)).Append('.').Append(c.QuotesColumnName));
+            //    var value = (IDbExpression)Activator.CreateInstance(prop.PropertyType);
+            //    Action<SqlContext> a = sql => sql.Append(sql.GetAlias(query)).Append('.').Append(c.QuotesColumnName);
             //    prop.SetValue(ColumnsDefine, value, null);
             //}
             //return ColumnsDefine;
             return constructor(query);
         }
-    }
-
-    /// <summary>
-    /// Entity LINQ Queryable Object 
-    /// </summary>
-    /// <typeparam name="T">Entity Type</typeparam>
-    /// <typeparam name="C">This type is used for representation of SQL expression clause in WHERE, ORDER BY and HAVING</typeparam>
-    public sealed class EntityTable<T, C> : QueryContext<C, T, T>
-        where T : DbEntity
-        where C : class,new()
-    {
-        static EntityTable() { }
-
-        static readonly Lazy<Projection> identityProjection = new Lazy<Projection>(() => Projection.Identity<T>());
+        #endregion
 
         public EntityTable(OracleDB db)
             : base(identityProjection, new Closure
