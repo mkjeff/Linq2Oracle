@@ -13,7 +13,7 @@ namespace Linq2Oracle
         [XmlIgnore]
         public bool IsLoaded { get; internal set; }
 
-        public bool IsChanged { get { return ChangedMap.Count > 0; } }
+        public bool IsChanged => ChangedMap.Count > 0;
 
         /// <summary>
         /// key: ColumnIndex, value: originalValue(db value)
@@ -29,7 +29,7 @@ namespace Linq2Oracle
 
         static readonly SortedList<int, object> _EmptyChangeMap = new SortedList<int, object>(0);
 
-        internal SortedList<int, object> ChangedMap { get { return _changedMap; } }
+        internal SortedList<int, object> ChangedMap => _changedMap;
 
         protected void BeforeColumnChange([CallerMemberNameAttribute]string columnName = "")
         {
@@ -48,7 +48,7 @@ namespace Linq2Oracle
             if (!_changedMap.ContainsKey(c.ColumnIndex))
             {
                 _changedMap.Add(c.ColumnIndex, c.GetValue(this));
-                NotifyPropertyChanged("IsChanged");
+                NotifyPropertyChanged(nameof(IsChanged));
             }
         }
 
@@ -60,8 +60,7 @@ namespace Linq2Oracle
 
         protected void NotifyPropertyChanged([CallerMemberNameAttribute]string propertyName = "")
         {
-            if (PropertyChanged != null)
-                PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
         #endregion
     }

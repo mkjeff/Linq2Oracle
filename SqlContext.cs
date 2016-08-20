@@ -10,16 +10,13 @@ namespace Linq2Oracle
 {
     public sealed class SqlContext
     {
-        public int ParameterCount { get { return param.Count; } }
+        public int ParameterCount => param.Count;
 
         readonly StringBuilder sql;
         readonly OracleParameterCollection param;
         readonly Dictionary<IQueryContext, string> _alias = new Dictionary<IQueryContext, string>();
 
-        public override string ToString()
-        {
-            return sql.ToString();
-        }
+        public override string ToString() => sql.ToString();
 
         internal SqlContext(StringBuilder sql, OracleParameterCollection param)
         {

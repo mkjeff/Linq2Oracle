@@ -39,10 +39,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region Select
-        public QueryContext<C, T, TResult> Select(Func<_, C> selector)
-        {
-            return this;
-        }
+        public QueryContext<C, T, TResult> Select(Func<_, C> selector) => this;
         #endregion
         #region SelectMany
         public SelectManyContext<C, T, TResult, __> SelectMany<C2, T2, TResult2, __>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<_, C2, __> resultSelector)
@@ -81,23 +78,17 @@ namespace Linq2Oracle
 
             return new SelectManyContext<C, T, TResult, _>(OriginalSource, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
-        public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector)
-        {
-            return OrderBy(keySelector(_transparentId), false);
-        }
-        public SelectManyContext<C, T, TResult, _> OrderByDescending(Func<_, IDbExpression> keySelector)
-        {
-            return OrderBy(keySelector(_transparentId), true);
-        }
+        public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector) 
+            => OrderBy(keySelector(_transparentId), false);
 
-        public SelectManyContext<C, T, TResult, _> ThenBy(Func<_, IDbExpression> keySelector)
-        {
-            return OrderBy(keySelector(_transparentId), false);
-        }
-        public SelectManyContext<C, T, TResult, _> ThenByDescending(Func<_, IDbExpression> keySelector)
-        {
-            return OrderBy(keySelector(_transparentId), true);
-        }
+        public SelectManyContext<C, T, TResult, _> OrderByDescending(Func<_, IDbExpression> keySelector) 
+            => OrderBy(keySelector(_transparentId), true);
+
+        public SelectManyContext<C, T, TResult, _> ThenBy(Func<_, IDbExpression> keySelector) 
+            => OrderBy(keySelector(_transparentId), false);
+
+        public SelectManyContext<C, T, TResult, _> ThenByDescending(Func<_, IDbExpression> keySelector) 
+            => OrderBy(keySelector(_transparentId), true);
 
         SelectManyContext<C, T, TResult, _> OrderBy(IDbExpression expr, bool desc)
         {

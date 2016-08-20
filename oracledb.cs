@@ -86,30 +86,18 @@ namespace Linq2Oracle
         object CheckPkNull(string columnName, object value)
         {
             if (value == null)
-                throw new DalException(DbErrorCode.E_DB_PK_NULL, string.Format("主鍵{0}不能為NULL", columnName));
+                throw new DalException(DbErrorCode.E_DB_PK_NULL, $"主鍵 {columnName} 不能為NULL");
             return value;
         }
         #endregion
         #region Command Free Methods
-        public OracleCommand CreateCommand()
-        {
-            return _conn.CreateCommand();
-        }
+        public OracleCommand CreateCommand() => _conn.CreateCommand();
 
-        public object ExecuteScalar(OracleCommand cmd)
-        {
-            return PrepareDbCommand(cmd).ExecuteScalar();
-        }
+        public object ExecuteScalar(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteScalar();
 
-        public int ExecuteNonQuery(OracleCommand cmd)
-        {
-            return PrepareDbCommand(cmd).ExecuteNonQuery();
-        }
+        public int ExecuteNonQuery(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteNonQuery();
 
-        public OracleDataReader ExecuteReader(OracleCommand cmd)
-        {
-            return PrepareDbCommand(cmd).ExecuteReader();
-        }
+        public OracleDataReader ExecuteReader(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteReader();
         #endregion
         #region Batch Query
         public void BatchQuery(params IQueryContext[] querys)
@@ -201,10 +189,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">insert list</param>
-        public IEnumerable<T> Insert<T>(IEnumerable<T> list) where T : DbEntity
-        {
-            return Insert(list.ToArray());
-        }
+        public IEnumerable<T> Insert<T>(IEnumerable<T> list) where T : DbEntity => Insert(list.ToArray());
         #endregion
         #region Delete
         public bool Delete<T>(T t) where T : DbEntity
@@ -237,10 +222,7 @@ namespace Linq2Oracle
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public int Delete<T>(IEnumerable<T> list) where T : DbEntity
-        {
-            return Delete<T>(list.ToArray());
-        }
+        public int Delete<T>(IEnumerable<T> list) where T : DbEntity => Delete<T>(list.ToArray());
 
         /// <summary>
         /// 刪除多筆紀錄，用於刪除已經讀取的紀錄
@@ -260,7 +242,7 @@ namespace Linq2Oracle
             {
                 t.IsLoaded = false;
                 t.ChangedMap.Clear();
-            };
+            }
 
             using (var cmd = this.CreateCommand())
             {
@@ -398,10 +380,7 @@ namespace Linq2Oracle
         /// <typeparam name="T">Entity type</typeparam>
         /// <param name="list">update list</param>
         /// <returns>effect row count</returns>
-        public int Update<T>(IEnumerable<T> list) where T : DbEntity
-        {
-            return Update<T>(list.ToArray());
-        }
+        public int Update<T>(IEnumerable<T> list) where T : DbEntity => Update<T>(list.ToArray());
 
         /// <summary>
         /// 批次更新
@@ -657,10 +636,7 @@ namespace Linq2Oracle
         /// <typeparam name="T"></typeparam>
         /// <param name="list"></param>
         /// <returns></returns>
-        public IEnumerable<T> InsertOrUpdate<T>(IEnumerable<T> list) where T : DbEntity
-        {
-            return InsertOrUpdate(list.ToArray());
-        }
+        public IEnumerable<T> InsertOrUpdate<T>(IEnumerable<T> list) where T : DbEntity => InsertOrUpdate(list.ToArray());
 
         /// <summary>
         /// Batch Insert/Update

@@ -14,9 +14,9 @@ namespace Linq2Oracle
         public static IEnumerable<TSource> Using<TSource, TResource>(Func<TResource> resourceFactory, Func<TResource, IEnumerable<TSource>> enumerableFactory) where TResource : IDisposable
         {
             if (resourceFactory == null)
-                throw new ArgumentNullException("resourceFactory");
+                throw new ArgumentNullException(nameof(resourceFactory));
             if (enumerableFactory == null)
-                throw new ArgumentNullException("enumerableFactory");
+                throw new ArgumentNullException(nameof(enumerableFactory));
 
             return Using_(resourceFactory, enumerableFactory);
         }
@@ -31,7 +31,7 @@ namespace Linq2Oracle
         public static bool IsEmpty<TSource>(this IEnumerable<TSource> source)
         {
             if (source == null)
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
 
             return !source.Any();
         }
@@ -39,9 +39,9 @@ namespace Linq2Oracle
         public static void ForEach<TSource>(this IEnumerable<TSource> source, Action<TSource> onNext)
         {
             if (source == null)
-                throw new ArgumentNullException("source");
+                throw new ArgumentNullException(nameof(source));
             if (onNext == null)
-                throw new ArgumentNullException("onNext");
+                throw new ArgumentNullException(nameof(onNext));
 
             foreach (var item in source)
                 onNext(item);
@@ -50,17 +50,15 @@ namespace Linq2Oracle
         public static IEnumerable<TSource> Concat<TSource>(params IEnumerable<TSource>[] sources)
         {
             if (sources == null)
-                throw new ArgumentNullException("sources");
+                throw new ArgumentNullException(nameof(sources));
 
             return sources.Concat_();
         }
 
-        public static IEnumerable<TSource> Concat<TSource>(IEnumerable<TSource> sources, TSource element)
-        {
-            return EnumerableEx.Concat(sources, EnumerableEx.Return(element));
-        }
+        public static IEnumerable<TSource> Concat<TSource>(IEnumerable<TSource> sources, TSource element) 
+            => EnumerableEx.Concat(sources, EnumerableEx.Return(element));
 
-        private static IEnumerable<TSource> Concat_<TSource>(this IEnumerable<IEnumerable<TSource>> sources)
+        static IEnumerable<TSource> Concat_<TSource>(this IEnumerable<IEnumerable<TSource>> sources)
         {
             foreach (var source in sources)
                 foreach (var item in source)

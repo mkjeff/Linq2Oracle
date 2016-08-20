@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Reflection;
+using Oracle.ManagedDataAccess.Types;
 
 namespace Linq2Oracle
 {
@@ -19,10 +20,7 @@ namespace Linq2Oracle
                 DbType = dbType;
             }
 
-            public bool Equals(DbTypeKey o)
-            {
-                return ClrType.Equals(o.ClrType) && DbType == o.DbType;
-            }
+            public bool Equals(DbTypeKey o) => ClrType.Equals(o.ClrType) && DbType == o.DbType;
 
             public override bool Equals(object obj)
             {
@@ -30,10 +28,7 @@ namespace Linq2Oracle
                     return Equals((DbTypeKey)obj);
                 return false;
             }
-            public override int GetHashCode()
-            {
-                return ClrType.GetHashCode() ^ DbType.GetHashCode();
-            }
+            public override int GetHashCode() => ClrType.GetHashCode() ^ DbType.GetHashCode();
         }
 
         static readonly ConcurrentDictionary<DbTypeKey, MethodInfo> _GetValueMethodMap = new ConcurrentDictionary<DbTypeKey, MethodInfo>();
@@ -62,27 +57,27 @@ namespace Linq2Oracle
         static OracleDataReaderHelper()
         {
             var type = typeof(OracleDataReaderHelper);
-            GetOraString = type.GetInternalMethod("_GetOraString");
-            GetBinary = type.GetInternalMethod("_GetBinary");
-            GetNullableDate = type.GetInternalMethod("_GetNullableDate");
-            GetNullableTimeStamp = type.GetInternalMethod("_GetNullableTimeStamp");
-            GetNullableEnum_T = type.GetInternalMethod("_GetNullableEnum");
-            GetNullableInt16 = type.GetInternalMethod("_GetNullableInt16");
-            GetNullableInt32 = type.GetInternalMethod("_GetNullableInt32");
-            GetNullableInt64 = type.GetInternalMethod("_GetNullableInt64");
-            GetNullableFloat = type.GetInternalMethod("_GetNullableFloat");
-            GetNullableDouble = type.GetInternalMethod("_GetNullableDouble");
-            GetOraDate = type.GetInternalMethod("_GetOraDate");
-            GetOraTimeStamp = type.GetInternalMethod("_GetOraTimeStamp");
-            GetEnum_T = type.GetInternalMethod("_GetEnum");
-            GetInt16 = type.GetInternalMethod("_GetInt16");
-            GetInt32 = type.GetInternalMethod("_GetInt32");
-            GetInt64 = type.GetInternalMethod("_GetInt64");
-            GetFloat = type.GetInternalMethod("_GetFloat");
-            GetDouble = type.GetInternalMethod("_GetDouble");
-            GetUnknow_T = type.GetInternalMethod("_UnknowDataType");
-            GetOraChar = type.GetInternalMethod("_GetOraChar");
-            GetNullableChar = type.GetInternalMethod("_GetNullableChar");
+            GetOraString = type.GetInternalMethod(nameof(_GetOraString));
+            GetBinary = type.GetInternalMethod(nameof(_GetBinary));
+            GetNullableDate = type.GetInternalMethod(nameof(_GetNullableDate));
+            GetNullableTimeStamp = type.GetInternalMethod(nameof(_GetNullableTimeStamp));
+            GetNullableEnum_T = type.GetInternalMethod(nameof(_GetNullableEnum));
+            GetNullableInt16 = type.GetInternalMethod(nameof(_GetNullableInt16));
+            GetNullableInt32 = type.GetInternalMethod(nameof(_GetNullableInt32));
+            GetNullableInt64 = type.GetInternalMethod(nameof(_GetNullableInt64));
+            GetNullableFloat = type.GetInternalMethod(nameof(_GetNullableFloat));
+            GetNullableDouble = type.GetInternalMethod(nameof(_GetNullableDouble));
+            GetOraDate = type.GetInternalMethod(nameof(_GetOraDate));
+            GetOraTimeStamp = type.GetInternalMethod(nameof(_GetOraTimeStamp));
+            GetEnum_T = type.GetInternalMethod(nameof(_GetEnum));
+            GetInt16 = type.GetInternalMethod(nameof(_GetInt16));
+            GetInt32 = type.GetInternalMethod(nameof(_GetInt32));
+            GetInt64 = type.GetInternalMethod(nameof(_GetInt64));
+            GetFloat = type.GetInternalMethod(nameof(_GetFloat));
+            GetDouble = type.GetInternalMethod(nameof(_GetDouble));
+            GetUnknow_T = type.GetInternalMethod(nameof(_UnknowDataType));
+            GetOraChar = type.GetInternalMethod(nameof(_GetOraChar));
+            GetNullableChar = type.GetInternalMethod(nameof(_GetNullableChar));
         }
 
         /// <summary>
@@ -128,10 +123,8 @@ namespace Linq2Oracle
             });
         }
 
-        static MethodInfo GetInternalMethod(this Type type, string method)
-        {
-            return type.GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic);
-        }
+        static MethodInfo GetInternalMethod(this Type type, string method) => type.GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic);
+
         #region OracleDataReader Get Value By Index Helper
         static T _UnknowDataType<T>(this OracleDataReader reader, int index)
         {
@@ -139,98 +132,55 @@ namespace Linq2Oracle
         }
 
         static byte[] _GetBinary(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleBinary(index);
-            return val.IsNull ? null : val.Value;
-        }
+            => reader.GetOracleBinary(index).ToNullable(v => v.Value);
 
         static short? _GetNullableInt16(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDecimal(index);
-            return val.IsNull ? (short?)null : (short)val;
-        }
+            => reader.GetOracleDecimal(index).ToNullable(v => (short)v);
 
-        static short _GetInt16(this OracleDataReader reader, int index)
-        {
-            return (short)reader.GetOracleDecimal(index);
-        }
+        static short _GetInt16(this OracleDataReader reader, int index) 
+            => (short)reader.GetOracleDecimal(index);
 
-        static int? _GetNullableInt32(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDecimal(index);
-            return val.IsNull ? (int?)null : (int)val;
-        }
+        static int? _GetNullableInt32(this OracleDataReader reader, int index) 
+            => reader.GetOracleDecimal(index).ToNullable(v => (int)v);
 
-        static int _GetInt32(this OracleDataReader reader, int index)
-        {
-            return (int)reader.GetOracleDecimal(index);
-        }
+        static int _GetInt32(this OracleDataReader reader, int index) 
+            => (int)reader.GetOracleDecimal(index);
 
-        static long? _GetNullableInt64(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDecimal(index);
-            return val.IsNull ? (long?)null : (long)val;
-        }
+        static long? _GetNullableInt64(this OracleDataReader reader, int index) 
+            => reader.GetOracleDecimal(index).ToNullable(v => (long)v);
 
-        static long _GetInt64(this OracleDataReader reader, int index)
-        {
-            return (long)reader.GetOracleDecimal(index);
-        }
+        static long _GetInt64(this OracleDataReader reader, int index) 
+            => (long)reader.GetOracleDecimal(index);
 
         static float? _GetNullableFloat(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDecimal(index);
-            return val.IsNull ? (float?)null : (float)val;
-        }
+            => reader.GetOracleDecimal(index).ToNullable(v => (float)v);
 
-        static float _GetFloat(this OracleDataReader reader, int index)
-        {
-            return (float)reader.GetOracleDecimal(index);
-        }
+        static float _GetFloat(this OracleDataReader reader, int index) 
+            => (float)reader.GetOracleDecimal(index);
 
         static double? _GetNullableDouble(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDecimal(index);
-            return val.IsNull ? (double?)null : (double)val;
-        }
+            => reader.GetOracleDecimal(index).ToNullable(v => (double)v);
 
-        static double _GetDouble(this OracleDataReader reader, int index)
-        {
-            return (double)reader.GetOracleDecimal(index);
-        }
+        static double _GetDouble(this OracleDataReader reader, int index) 
+            => (double)reader.GetOracleDecimal(index);
 
-        static System.DateTime _GetOraDate(this OracleDataReader reader, int index)
-        {
-            return reader.GetOracleDate(index).Value;
-        }
+        static System.DateTime _GetOraDate(this OracleDataReader reader, int index) 
+            => reader.GetOracleDate(index).Value;
 
         static System.DateTime? _GetNullableDate(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleDate(index);
-            return val.IsNull ? null : (System.DateTime?)val.Value;
-        }
+            => reader.GetOracleDate(index).ToNullable(v => v.Value);
 
-        static System.DateTime _GetOraTimeStamp(this OracleDataReader reader, int index)
-        {
-            return reader.GetOracleTimeStamp(index).Value;
-        }
+        static System.DateTime _GetOraTimeStamp(this OracleDataReader reader, int index) 
+            => reader.GetOracleTimeStamp(index).Value;
 
         static System.DateTime? _GetNullableTimeStamp(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleTimeStamp(index);
-            return val.IsNull ? null : (System.DateTime?)val.Value;
-        }
+            => reader.GetOracleTimeStamp(index).ToNullable(v => v.Value);
 
-        static string _GetOraString(this OracleDataReader reader, int index)
-        {
-            var val = reader.GetOracleString(index);
-            return val.IsNull ? null : val.Value;
-        }
+        static string _GetOraString(this OracleDataReader reader, int index) 
+            => reader.GetOracleString(index).ToNullable(v => v.Value);
 
-        static char _GetOraChar(this OracleDataReader reader, int index)
-        {
-            return reader.GetOracleString(index).Value[0];
-        }
+        static char _GetOraChar(this OracleDataReader reader, int index) 
+            => reader.GetOracleString(index).Value[0];
 
         static char? _GetNullableChar(this OracleDataReader reader, int index)
         {
@@ -238,16 +188,24 @@ namespace Linq2Oracle
             return val.IsNull || val.Value.Length == 0 ? null : (char?)val.Value[0];
         }
 
-        static T _GetEnum<T>(this OracleDataReader reader, int index) where T : struct
-        {
-            return (T)Enum.Parse(typeof(T), reader.GetOracleString(index).Value);
-        }
+        static T _GetEnum<T>(this OracleDataReader reader, int index) where T : struct 
+            => (T)Enum.Parse(typeof(T), reader.GetOracleString(index).Value);
 
         static T? _GetNullableEnum<T>(this OracleDataReader reader, int index) where T : struct
-        {
-            var val = reader.GetOracleString(index);
-            return val.IsNull ? null : (T?)Enum.Parse(typeof(T), val.Value);
-        }
+            => reader.GetOracleString(index).ToNullable(v => (T)Enum.Parse(typeof(T), v.Value));
         #endregion
+
+        static TValue? ToNullable<T, TValue>(this T nullable, Func<T, TValue> valueGetter)
+            where T : INullable
+            where TValue : struct 
+            => nullable.IsNull ? null : (TValue?)valueGetter(nullable);
+
+        static string ToNullable<T>(this T nullable, Func<T, string> valueGetter)
+            where T : INullable
+            => nullable.IsNull ? null : valueGetter(nullable);
+
+        static byte[] ToNullable<T>(this T nullable, Func<T, byte[]> valueGetter)
+            where T : INullable
+            => nullable.IsNull ? null : valueGetter(nullable);
     }
 }

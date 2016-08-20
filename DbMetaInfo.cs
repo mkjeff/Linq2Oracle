@@ -32,21 +32,18 @@ namespace Linq2Oracle
         public readonly string QuotesColumnName;
         public readonly string TableQuotesColumnName;
         public readonly int ColumnIndex;
-        public bool IsPrimarykey { get { return _attr.IsPrimarykey; } }
-        public bool IsNullable { get { return _attr.IsNullable; } }
-        public OracleDbType DbType { get { return _attr.DbType; } }
-        public int Size { get { return _attr.Size; } }
+        public bool IsPrimarykey => _attr.IsPrimarykey;
+        public bool IsNullable => _attr.IsNullable;
+        public OracleDbType DbType => _attr.DbType;
+        public int Size => _attr.Size;
         /// <summary>
         /// Get Column Value.
         /// </summary>
         /// <param name="this">entity object</param>
         /// <returns>return DBNull if column value is null</returns>
-        public object GetValue(object @this)
-        {
-            return _propGetter(@this);
-        }
+        public object GetValue(object @this) => _propGetter(@this);
 
-        static readonly MethodInfo propGetterMaker = typeof(DbColumn).GetMethod("GetPropertyGetter", BindingFlags.Static | BindingFlags.NonPublic);
+        static readonly MethodInfo propGetterMaker = typeof(DbColumn).GetMethod(nameof(DbColumn.GetPropertyGetter), BindingFlags.Static | BindingFlags.NonPublic);
         static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi)
         {
             var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
@@ -111,7 +108,7 @@ namespace Linq2Oracle
                 sb.Append("UPDATE ").AppendLine(TableName)
                   .Append("SET ").AppendLine(string.Join(",", NonPkColumns.ConvertAll(c => c.QuotesColumnName + " = :" + i++)))
                   .Append("WHERE");
-                for (int k = 0, cnt = PkColumns.Length; k < cnt; k++)
+                for (int k = 0; k < PkColumns.Length; k++)
                 {
                     if (k != 0) sb.Append(" AND ");
                     var c = PkColumns[k];
@@ -123,7 +120,7 @@ namespace Linq2Oracle
                 sb.Length = 0;
                 sb.Append("DELETE FROM ").AppendLine(TableName)
                   .Append("WHERE ");
-                for (int k = 0, cnt = PkColumns.Length; k < cnt; k++)
+                for (int k = 0; k < PkColumns.Length; k++)
                 {
                     if (k != 0) sb.Append(" AND ");
                     var c = PkColumns[k];
@@ -141,7 +138,7 @@ namespace Linq2Oracle
                     .AppendLine("  USING (SELECT NULL FROM DUAL)")
                     .Append("  ON (");
 
-                for (int k = 0, cnt = PkColumns.Length; k < cnt; k++)
+                for (int k = 0; k < PkColumns.Length; k++)
                 {
                     if (k != 0) sb.Append(" AND ");
                     var c = PkColumns[k];
@@ -164,25 +161,22 @@ namespace Linq2Oracle
 
         static Table() { }
         static readonly ConcurrentDictionary<Type, Info> _cache = new ConcurrentDictionary<Type, Info>();
-        static internal Info GetTableInfo(Type entityType)
-        {
-            return _cache.GetOrAdd(entityType, t => new Info(t));
-        }
+        static internal Info GetTableInfo(Type entityType) => _cache.GetOrAdd(entityType, t => new Info(t));
     }
 
     static class Table<T> where T : DbEntity
     {
-        internal static string TableName { get { return Info.TableName; } }
-        internal static DbColumn[] DbColumns { get { return Info.DbColumns; } }
-        internal static Dictionary<string, DbColumn> DbColumnMap { get { return Info.DbColumnMap; } }
-        internal static DbColumn[] PkColumns { get { return Info.PkColumns; } }
-        internal static DbColumn[] NonPkColumns { get { return Info.NonPkColumns; } }
-        internal static DbColumn[] FixedColumns { get { return Info.FixedColumns; } }
-        internal static string InsertSql { get { return Info.InsertSql; } }
-        internal static string FullUpdateSql { get { return Info.FullUpdateSql; } }
-        internal static string FullSelectionColumnsString { get { return Info.FullSelectionColumnsString; } }
-        internal static string DeleteWithPK { get { return Info.DeleteWithPK; } }
-        internal static string InsertOrUpdateSql { get { return Info.InsertOrUpdateSql; } }
+        internal static string TableName => Info.TableName;
+        internal static DbColumn[] DbColumns => Info.DbColumns;
+        internal static Dictionary<string, DbColumn> DbColumnMap => Info.DbColumnMap;
+        internal static DbColumn[] PkColumns => Info.PkColumns;
+        internal static DbColumn[] NonPkColumns => Info.NonPkColumns;
+        internal static DbColumn[] FixedColumns => Info.FixedColumns;
+        internal static string InsertSql => Info.InsertSql;
+        internal static string FullUpdateSql => Info.FullUpdateSql;
+        internal static string FullSelectionColumnsString => Info.FullSelectionColumnsString;
+        internal static string DeleteWithPK => Info.DeleteWithPK;
+        internal static string InsertOrUpdateSql => Info.InsertOrUpdateSql;
 
         internal static readonly Table.Info Info = Table.GetTableInfo(typeof(T));
         static Table() { }

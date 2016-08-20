@@ -12,30 +12,22 @@ namespace Linq2Oracle
     {
         #region Internal Members
 
-        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, object value)
-        {
-            return sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, value, ParameterDirection.Input).ParameterName);
-        }
+        internal static StringBuilder AppendParam(this StringBuilder sql, OracleParameterCollection param, OracleDbType dbType, object value) 
+            => sql.Append(':').Append(param.Add(param.Count.ToString(), dbType, value, ParameterDirection.Input).ParameterName);
 
-        internal static R[] ConvertAll<T, R>(this T[] array, Converter<T, R> converter)
-        {
-            return Array.ConvertAll(array, converter);
-        }
+        internal static R[] ConvertAll<T, R>(this T[] array, Converter<T, R> converter) 
+            => Array.ConvertAll(array, converter);
 
         #endregion
 
         #region Where Column In (...)
-        public static SqlBoolean In<E, T>(this E @this, IEnumerable<T> values)
-            where E : IDbExpression<T>
-        {
-            return @this.In(values.ToArray());
-        }
+        public static SqlBoolean In<E, T>(this E @this, IEnumerable<T> values) where E : IDbExpression<T>
+            => @this.In(values.ToArray());
 
         public static SqlBoolean In<E, T>(this E @this, T[] values)
-            where E : IDbExpression<T>
-        {
-            return new SqlBoolean(sql =>
-            {
+            where E : IDbExpression<T> 
+            => new SqlBoolean(sql =>
+                                                    {
                 if (values.Length == 0)
                 {
                     sql.Append("1=2");
@@ -64,7 +56,6 @@ namespace Linq2Oracle
 
                 sql.Append(')');
             });
-        }
 
         public static SqlBoolean In<E, T>(this E @this, IQueryContext<T> subquery)
             where E : IDbExpression<T>
@@ -115,31 +106,26 @@ namespace Linq2Oracle
 
         public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IEnumerable<Tuple<T1, T2>> values)
             where E1 : IDbExpression<T1>
-            where E2 : IDbExpression<T2>
-        {
-            return @this.In(values.ToArray());
-        }
+            where E2 : IDbExpression<T2> 
+            => @this.In(values.ToArray());
 
         public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IQueryContext<Tuple<T1, T2>> subquery)
             where E1 : IDbExpression<T1>
-            where E2 : IDbExpression<T2>
-        {
-            return new SqlBoolean(sql =>
+            where E2 : IDbExpression<T2> 
+            => new SqlBoolean(sql =>
                 sql.Append('(')
-                    .Append(@this.Item1).Append(',')
-                    .Append(@this.Item2).Append(") IN (")
-                    .AppendQuery(subquery)
-                    .Append(')'));
-        }
+                            .Append(@this.Item1).Append(',')
+                            .Append(@this.Item2).Append(") IN (")
+                            .AppendQuery(subquery)
+                            .Append(')'));
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
         public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, Tuple<T1, T2, T3>[] values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
-            where E3 : IDbExpression<T3>
-        {
-            return new SqlBoolean(sql =>
-            {
+            where E3 : IDbExpression<T3> 
+            => new SqlBoolean(sql =>
+                                                      {
                 if (values.Length == 0)
                 {
                     sql.Append("1=2");
@@ -181,29 +167,23 @@ namespace Linq2Oracle
                 }
                 sql.Append(')');
             });
-        }
 
         public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
-            where E3 : IDbExpression<T3>
-        {
-            return @this.In(values.ToArray());
-        }
+            where E3 : IDbExpression<T3> 
+            => @this.In(values.ToArray());
 
         public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             where E3 : IDbExpression<T3>
-        {
-            return new SqlBoolean(sql =>
-                sql.Append('(')
-                    .Append(@this.Item1).Append(',')
-                    .Append(@this.Item2).Append(',')
-                    .Append(@this.Item3).Append(") IN (")
-                    .AppendQuery(subquery)
-                    .Append(')'));
-        }
+            => new SqlBoolean(sql => sql.Append('(')
+                                                  .Append(@this.Item1).Append(',')
+                                                  .Append(@this.Item2).Append(',')
+                                                  .Append(@this.Item3).Append(") IN (")
+                                                  .AppendQuery(subquery)
+                                                  .Append(')'));
         #endregion
 
         #region Delete

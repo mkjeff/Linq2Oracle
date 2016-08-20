@@ -7,19 +7,17 @@ namespace Linq2Oracle
 {
     sealed class ExpressionCache<T> where T : class
     {
-        private readonly ConcurrentDictionary<CacheKey, T> m_storage = new ConcurrentDictionary<CacheKey, T>();
+        readonly ConcurrentDictionary<CacheKey, T> m_storage = new ConcurrentDictionary<CacheKey, T>();
 
-        public T Get<TKey>(TKey key, Func<TKey, T> creator) where TKey : Expression
-        {
-            return m_storage.GetOrAdd(new CacheKey(key), k => creator((TKey)k.Expression));
-        }
+        public T Get<TKey>(TKey key, Func<TKey, T> creator) where TKey : Expression 
+            => m_storage.GetOrAdd(new CacheKey(key), k => creator((TKey)k.Expression));
 
         sealed class CacheKey
         {
             static CacheKey() { }
             static readonly IComparer<Expression> comparer = new ExpressionComparer();
 
-            public Expression Expression { get; private set; }
+            public Expression Expression { get; }
 
             public CacheKey(Expression exp)
             {

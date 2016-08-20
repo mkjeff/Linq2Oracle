@@ -25,7 +25,7 @@ namespace Linq2Oracle
     [DebuggerDisplay("Query {typeof(T).Name,nq}")]
     public class QueryContext<C, T, TResult> : IQueryContext, IQueryContext<TResult>
         where T : DbEntity
-        where C : class,new()
+        where C : class, new()
     {
         #region Private Member
         internal readonly C ColumnDefine;
@@ -117,41 +117,24 @@ namespace Linq2Oracle
         }
         #endregion
         #region Single(OrDefault)
-        public TResult Single()
-        {
-            return this.AsEnumerable().Single();
-        }
-        public TResult Single(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).Single();
-        }
-        public TResult SingleOrDefault()
-        {
-            return this.AsEnumerable().SingleOrDefault();
-        }
-        public TResult SingleOrDefault(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).SingleOrDefault();
-        }
+        public TResult Single() => this.AsEnumerable().Single();
+
+        public TResult Single(Func<C, SqlBoolean> predicate) => this.Where(predicate).Single();
+
+        public TResult SingleOrDefault() => this.AsEnumerable().SingleOrDefault();
+
+        public TResult SingleOrDefault(Func<C, SqlBoolean> predicate) => this.Where(predicate).SingleOrDefault();
+
         #endregion
         #region First(OrDefault)
-        public TResult First()
-        {
-            return this.Take(1).AsEnumerable().First();
-        }
-        public TResult First(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).Take(1).First();
-        }
+        public TResult First() => this.Take(1).AsEnumerable().First();
 
-        public TResult FirstOrDefault()
-        {
-            return this.Take(1).AsEnumerable().FirstOrDefault();
-        }
-        public TResult FirstOrDefault(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).Take(1).FirstOrDefault();
-        }
+        public TResult First(Func<C, SqlBoolean> predicate) => this.Where(predicate).Take(1).First();
+
+        public TResult FirstOrDefault() => this.Take(1).AsEnumerable().FirstOrDefault();
+
+        public TResult FirstOrDefault(Func<C, SqlBoolean> predicate) => this.Where(predicate).Take(1).FirstOrDefault();
+
         #endregion
         #region Skip / Take / TakeByPage / TakeBySum
         public QueryContext<C, T, TResult> Skip(int count)
@@ -401,10 +384,7 @@ namespace Linq2Oracle
         }
         #endregion
         #region Select
-        public QueryContext<C, T, TResult> Select(Func<C, C> selector)
-        {
-            return this;
-        }
+        public QueryContext<C, T, TResult> Select(Func<C, C> selector) => this;
 
         /// <summary>
         /// SQL Projection
@@ -422,7 +402,7 @@ namespace Linq2Oracle
         #region SelectMany
         public SelectManyContext<C, T, TResult, _> SelectMany<C2, T2, TResult2, _>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<C, C2, _> resultSelector)
             where T2 : DbEntity
-            where C2 : class,new()
+            where C2 : class, new()
         {
             var innerContext = collectionSelector(ColumnDefine);
 
@@ -490,20 +470,20 @@ namespace Linq2Oracle
             var thisC = _closure; thisC.Orderby = EmptyList<SortDescription>.Instance;
             var otherC = other._closure; otherC.Orderby = EmptyList<SortDescription>.Instance;
             return new QueryContext<C, T, TResult>(projector: _projection, closure: new Closure
-                {
-                    Filters = EmptyList<SqlBoolean>.Instance,
-                    Orderby = EmptyList<SortDescription>.Instance,
-                    Tables = EmptyList<IQueryContext>.Instance,
-                }, genSql: (sql, select, c) =>
-                {
-                    sql.Append(select).Append(" FROM (");
-                    this._genSql(sql, "SELECT t0.*", thisC);
-                    sql.Append(op);
-                    other._genSql(sql, "SELECT t0.*", otherC);
-                    sql.Append(") t0")
-                        .AppendWhere(c.Filters)
-                        .AppendOrder(c.Orderby);
-                }, columnDefine: ColumnDefine);
+            {
+                Filters = EmptyList<SqlBoolean>.Instance,
+                Orderby = EmptyList<SortDescription>.Instance,
+                Tables = EmptyList<IQueryContext>.Instance,
+            }, genSql: (sql, select, c) =>
+            {
+                sql.Append(select).Append(" FROM (");
+                this._genSql(sql, "SELECT t0.*", thisC);
+                sql.Append(op);
+                other._genSql(sql, "SELECT t0.*", otherC);
+                sql.Append(") t0")
+                    .AppendWhere(c.Filters)
+                    .AppendOrder(c.Orderby);
+            }, columnDefine: ColumnDefine);
         }
 
         /// <summary>
@@ -512,9 +492,7 @@ namespace Linq2Oracle
         /// <param name="other"></param>
         /// <returns></returns>
         public QueryContext<C, T, TResult> Intersect(QueryContext<C, T, TResult> other)
-        {
-            return _SetOperator(other, " INTERSECT ");
-        }
+            => _SetOperator(other, " INTERSECT ");
 
         /// <summary>
         /// SQL MINUS
@@ -522,9 +500,7 @@ namespace Linq2Oracle
         /// <param name="other"></param>
         /// <returns></returns>
         public QueryContext<C, T, TResult> Except(QueryContext<C, T, TResult> other)
-        {
-            return _SetOperator(other, " MINUS ");
-        }
+            => _SetOperator(other, " MINUS ");
 
         /// <summary>
         /// SQL UNION
@@ -532,9 +508,7 @@ namespace Linq2Oracle
         /// <param name="other"></param>
         /// <returns></returns>
         public QueryContext<C, T, TResult> Union(QueryContext<C, T, TResult> other)
-        {
-            return _SetOperator(other, " UNION ");
-        }
+            => _SetOperator(other, " UNION ");
 
         /// <summary>
         /// SQL UNION ALL
@@ -542,9 +516,7 @@ namespace Linq2Oracle
         /// <param name="other"></param>
         /// <returns></returns>
         public QueryContext<C, T, TResult> Concat(QueryContext<C, T, TResult> other)
-        {
-            return _SetOperator(other, " UNION ALL ");
-        }
+            => _SetOperator(other, " UNION ALL ");
         #endregion
         #region Max / Min / Sum / Average
         #region Max / Min for String
@@ -902,7 +874,7 @@ namespace Linq2Oracle
             if (!filter.IsVaild)
                 return new BooleanContext(() => false, new SqlBoolean());
 
-            var cc = _closure; 
+            var cc = _closure;
             cc.Orderby = EmptyList<SortDescription>.Instance;
             cc.Filters = new List<SqlBoolean>(cc.Filters) { !filter };
             return new BooleanContext(
@@ -927,10 +899,7 @@ namespace Linq2Oracle
         #endregion
         #region ForUpdate(Row Lock)
         const int DEFAULT_WAIT = 10;
-        public QueryContext<C, T, TResult> ForUpdate()
-        {
-            return ForUpdate(DEFAULT_WAIT);
-        }
+        public QueryContext<C, T, TResult> ForUpdate() => ForUpdate(DEFAULT_WAIT);
         public QueryContext<C, T, TResult> ForUpdate(int waitSec)
         {
             var newClosure = _closure;
@@ -939,19 +908,13 @@ namespace Linq2Oracle
         }
         #endregion
         #region IEnumerable<TResult> 成員
-        IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator()
-        {
-            return _data.GetEnumerator();
-        }
+        IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator() => _data.GetEnumerator();
         #endregion
         #region IEnumerable 成員
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return ((IEnumerable<TResult>)this).GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<TResult>)this).GetEnumerator();
         #endregion
         #region IQueryContext 成員
-        public IQueryContext OriginalSource { get { return _closure.OriginalSource; } }
+        public IQueryContext OriginalSource => _closure.OriginalSource;
 
         void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
@@ -987,20 +950,20 @@ namespace Linq2Oracle
     /// <typeparam name="C">This type is used for representation of SQL expression clause in WHERE, ORDER BY and HAVING</typeparam>
     public sealed class EntityTable<T, C> : QueryContext<C, T, T>
         where T : DbEntity
-        where C : class,new()
+        where C : class, new()
     {
         #region Static Members
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         static readonly Func<IQueryContext, C> constructor;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        static readonly MethodInfo dbExprCreator = typeof(SqlExpressionBuilder).GetMethod("Create");
+        static readonly MethodInfo dbExprCreator = typeof(SqlExpressionBuilder).GetMethod(nameof(SqlExpressionBuilder.Create));
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        static readonly MethodInfo sqlGetAlias = typeof(SqlContext).GetMethod("GetAlias");
+        static readonly MethodInfo sqlGetAlias = typeof(SqlContext).GetMethod(nameof(SqlContext.GetAlias));
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        static readonly MethodInfo sqlAppend = typeof(SqlContext).GetMethod("Append", new Type[] { typeof(string) });
+        static readonly MethodInfo sqlAppend = typeof(SqlContext).GetMethod(nameof(SqlContext.Append), new Type[] { typeof(string) });
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         static readonly Lazy<Projection> identityProjection = new Lazy<Projection>(() => Projection.Identity<T>());
@@ -1066,7 +1029,8 @@ namespace Linq2Oracle
                 Filters = EmptyList<SqlBoolean>.Instance,
                 Orderby = EmptyList<SortDescription>.Instance,
                 Tables = EmptyList<IQueryContext>.Instance,
-            }) { }
+            })
+        { }
     }
 
     struct Closure
@@ -1088,8 +1052,8 @@ namespace Linq2Oracle
 
     sealed class SortDescription
     {
-        public IDbExpression Expression { get; private set; }
-        public bool Descending { get; private set; }
+        public IDbExpression Expression { get; }
+        public bool Descending { get; }
         public SortDescription(IDbExpression expr, bool desc)
         {
             Expression = expr;

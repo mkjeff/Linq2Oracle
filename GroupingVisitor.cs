@@ -39,10 +39,9 @@ namespace Linq2Oracle
         readonly Table.Info _tableInfo;
         readonly Dictionary<object, Expression> _valueGetters;//store column value getter expression 
 
-        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> resultSelector) where T : DbEntity
-        {
-            return _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
-        }
+        internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> resultSelector) 
+            where T : DbEntity 
+            => _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
 
         GroupingAggregate(Table.Info tableInfo, GroupingKeySelector keySelector, LambdaExpression valueSelector)
         {
@@ -50,7 +49,7 @@ namespace Linq2Oracle
             this._tableInfo = tableInfo;
             this._paramT = valueSelector.Parameters[0];
             this.GrouipingKeySelector = keySelector;
-            this._keyMember = _paramT.Type.GetProperty("Key");
+            this._keyMember = _paramT.Type.GetProperty(nameof(IGroupingAggregateContext<DbEntity, object>.Key));
             var lambda = Expression.Lambda(base.Visit(valueSelector.Body), dbReader);
             this.ValueSelector = lambda.Compile();
             this.SelectionSql = _selectionSqlBuffer.ToString();
@@ -219,15 +218,13 @@ namespace Linq2Oracle
                 }
             }
 
-            protected override Expression VisitNew(NewExpression nex)
-            {
-                return Expression.New(nex.Constructor, ParseNew(nex), nex.Members);
-            }
+            protected override Expression VisitNew(NewExpression nex) 
+                => Expression.New(nex.Constructor, ParseNew(nex), nex.Members);
 
             protected override Expression VisitMember(MemberExpression m)
             {
                 if (m.Expression.Type != Lambda.Parameters[0].Type)
-                    throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m.ToString());
+                    throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m);
 
                 Expression expr = null;
                 if (valueGetterMap.TryGetValue(m.Member, out expr))
@@ -280,15 +277,10 @@ namespace Linq2Oracle
             this._tableInfo = null;
         }
 
-        internal DbColumn GetColumn(PropertyInfo property)
-        {
-            return _memberMap[property];
-        }
+        internal DbColumn GetColumn(PropertyInfo property) => _memberMap[property];
 
-        internal static GroupingKeySelector Create<T, TKey>(Expression<Func<T, TKey>> keySelector) where T : DbEntity
-        {
-            return _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
-        }
+        internal static GroupingKeySelector Create<T, TKey>(Expression<Func<T, TKey>> keySelector) where T : DbEntity 
+            => _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
 
         internal SqlBoolean GetGroupKeyPredicate<TKey>(TKey groupKey)
         {
@@ -325,7 +317,7 @@ namespace Linq2Oracle
         protected override Expression VisitMemberInit(MemberInitExpression init)
         {
             // group by new Class{ Member init }
-            throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + init.ToString());
+            throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + init);
         }
 
         protected override Expression VisitNew(NewExpression nex)
@@ -353,10 +345,7 @@ namespace Linq2Oracle
             var c = this._tableInfo.DbColumnMap[m.Member.Name];
             _memberMap = new Dictionary<PropertyInfo, DbColumn>
             {
-                {
-                    (PropertyInfo)m.Member , 
-                    new DbColumn((PropertyInfo)m.Member, this._tableInfo.DbColumnMap[m.Member.Name])
-                }
+                [(PropertyInfo)m.Member] = new DbColumn((PropertyInfo)m.Member, this._tableInfo.DbColumnMap[m.Member.Name])
             };
             return m;
         }

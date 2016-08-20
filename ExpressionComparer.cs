@@ -44,10 +44,10 @@ namespace Linq2Oracle
             result = x.GetHashCode() - y.GetHashCode();
             if (result != 0) return result;
 
-            result = x.Name.CompareTo(y.Name);
+            result = string.Compare(x.Name, y.Name, StringComparison.Ordinal);
             if (result != 0) return result;
 
-            return x.AssemblyQualifiedName.CompareTo(y.AssemblyQualifiedName);
+            return string.Compare(x.AssemblyQualifiedName, y.AssemblyQualifiedName, StringComparison.Ordinal);
         }
 
         protected virtual int CompareMemberInfo(MemberInfo x, MemberInfo y)
@@ -63,13 +63,13 @@ namespace Linq2Oracle
             result = x.MemberType - y.MemberType;
             if (result != 0) return result;
 
-            result = x.Name.CompareTo(y.Name);
+            result = string.Compare(x.Name, y.Name, StringComparison.Ordinal);
             if (result != 0) return result;
 
             result = CompareType(x.DeclaringType, y.DeclaringType);
             if (result != 0) return result;
 
-            return x.ToString().CompareTo(y.ToString());
+            return string.Compare(x.ToString(), y.ToString(), StringComparison.Ordinal);
         }
 
         public virtual int Compare(Expression x, Expression y)
@@ -147,7 +147,7 @@ namespace Linq2Oracle
                 case ExpressionType.ListInit:
                     return this.CompareListInit((ListInitExpression)x, (ListInitExpression)y);
                 default:
-                    throw new Exception(string.Format("Unhandled expression type: '{0}'", x.NodeType));
+                    throw new Exception($"Unhandled expression type: '{ x.NodeType}'");
             }
         }
 
@@ -291,7 +291,7 @@ namespace Linq2Oracle
 
         protected virtual int CompareParameter(ParameterExpression x, ParameterExpression y)
         {
-            return x.Name.CompareTo(y.Name);
+            return string.Compare(x.Name, y.Name, StringComparison.Ordinal);
         }
 
         protected virtual int CompareConstant(ConstantExpression x, ConstantExpression y)

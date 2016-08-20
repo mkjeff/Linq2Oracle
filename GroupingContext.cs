@@ -46,23 +46,19 @@ namespace Linq2Oracle
         /// <summary>
         /// Debug infomation
         /// </summary>
-        IEnumerable<TKey> Keys { get { return this.Select(g => g.Key).AsEnumerable(); } }
+        IEnumerable<TKey> Keys => this.Select(g => g.Key).AsEnumerable();
 
-        #region Where(Having)
         /// <summary>
         /// SQL Having operator
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
         public GroupingContextCollection<C, T, TKey, TElement> Where(System.Func<HavingContext<T, C>, SqlBoolean> predicate)
-        {
-            return new GroupingContextCollection<C, T, TKey, TElement>(
+            => new GroupingContextCollection<C, T, TKey, TElement>(
                 context: _context,
                 keySelector: _keySelector,
                 filters: new List<SqlBoolean>(_having) { predicate(new HavingContext<T, C>(_context.ColumnDefine)) });
-        }
-        #endregion
-        #region Select
+
         /// <summary>
         /// SQL Group Aggregation Projection
         /// </summary>
@@ -71,12 +67,9 @@ namespace Linq2Oracle
         /// <param name="file"></param>
         /// <param name="line"></param>
         /// <returns></returns>
-        public IQueryContext<TResult> Select<TResult>(Expression<System.Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
-        {
-            return new AggregateResult<TResult>(new System.Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
-        }
-        #endregion
-        #region IQueryContext 成員
+        public IQueryContext<TResult> Select<TResult>(Expression<System.Func<IGroupingAggregateContext<T, TKey>, TResult>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0) 
+            => new AggregateResult<TResult>(new System.Lazy<GroupingAggregate>(() => GroupingAggregate.Create(_keySelector.Value, selector)), _context, _having);
+
         void IQueryContext.GenInnerSql(SqlContext sql, string selection)
         {
             ((IQueryContext)this.Select(g => g.Key)).GenInnerSql(sql, selection);
@@ -87,16 +80,12 @@ namespace Linq2Oracle
             ((IQueryContext)this.Select(g => g.Key)).GenBatchSql(sql, refParam);
         }
 
-        public OracleDB Db { get { return _context.Db; } }
+        public OracleDB Db => _context.Db;
 
-        public string TableName { get { return Table<T>.TableName; } }
+        public string TableName => Table<T>.TableName;
 
-        IQueryContext IQueryContext.OriginalSource
-        {
-            get { return _context.OriginalSource; }
-        }
-        #endregion
-        #region IEnumerator<GroupingContext<C, T, TKey, TElement>> 成員
+        IQueryContext IQueryContext.OriginalSource => _context.OriginalSource;
+
         public IEnumerator<GroupingContext<C, T, TKey, TElement>> GetEnumerator()
         {
             foreach (var key in this.Select(g => g.Key))
@@ -109,13 +98,8 @@ namespace Linq2Oracle
                 yield return new GroupingContext<C, T, TKey, TElement>(_context, key, newClosure);
             }
         }
-        #endregion
-        #region IEnumerable 成員
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return this.GetEnumerator();
-        }
-        #endregion
+
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 
     [DebuggerDisplay("{Key}")]
@@ -144,50 +128,30 @@ namespace Linq2Oracle
         {
             this.ColumnDefine = columnDefine;
         }
-        #region Count / LongCount
-        public DbNumber Count()
-        {
-            return Function.Count().Create<DbNumber>();
-        }
 
-        public DbNumber LongCount()
-        {
-            return Function.Count().Create<DbNumber>();
-        }
-        #endregion
-        #region Average
-        public DbNumber Average(Func<C, DbNumber> selector)
-        {
-            return Function.Call("AVG", selector(ColumnDefine)).Create<DbNumber>();
-        }
+        public DbNumber Count() 
+            => Function.Count().Create<DbNumber>();
 
-        public NullableDbNumber Average(Func<C, NullableDbNumber> selector)
-        {
-            return Function.Call("AVG", selector(ColumnDefine)).Create<NullableDbNumber>();
-        }
-        #endregion
-        #region Sum
-        public DbNumber Sum(Func<C, DbNumber> selector)
-        {
-            return Function.Call("SUM", selector(ColumnDefine)).Create<DbNumber>();
-        }
+        public DbNumber LongCount() 
+            => Function.Count().Create<DbNumber>();
 
-        public NullableDbNumber Sum(Func<C, NullableDbNumber> selector)
-        {
-            return Function.Call("SUM", selector(ColumnDefine)).Create<NullableDbNumber>();
-        }
-        #endregion
-        #region Max / Min
-        public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression
-        {
-            return Function.Call("MAX", selector(ColumnDefine)).Create<TColumn>();
-        }
+        public DbNumber Average(Func<C, DbNumber> selector) 
+            => Function.Call("AVG", selector(ColumnDefine)).Create<DbNumber>();
 
-        public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression
-        {
-            return Function.Call("MIN", selector(ColumnDefine)).Create<TColumn>();
-        }
-        #endregion
+        public NullableDbNumber Average(Func<C, NullableDbNumber> selector) 
+            => Function.Call("AVG", selector(ColumnDefine)).Create<NullableDbNumber>();
+
+        public DbNumber Sum(Func<C, DbNumber> selector) 
+            => Function.Call("SUM", selector(ColumnDefine)).Create<DbNumber>();
+
+        public NullableDbNumber Sum(Func<C, NullableDbNumber> selector) 
+            => Function.Call("SUM", selector(ColumnDefine)).Create<NullableDbNumber>();
+
+        public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression 
+            => Function.Call("MAX", selector(ColumnDefine)).Create<TColumn>();
+
+        public TColumn Min<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression 
+            => Function.Call("MIN", selector(ColumnDefine)).Create<TColumn>();
     }
 
     /// <summary>
@@ -250,10 +214,10 @@ namespace Linq2Oracle
         readonly IEnumerable<SqlBoolean> _having;
 
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-        readonly System.Lazy<GroupingAggregate> _aggregate;
+        readonly Lazy<GroupingAggregate> _aggregate;
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        internal AggregateResult(System.Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<SqlBoolean> having)
+        internal AggregateResult(Lazy<GroupingAggregate> aggregate, IQueryContext context, IEnumerable<SqlBoolean> having)
         {
             _context = context;
             _having = having;
@@ -270,7 +234,7 @@ namespace Linq2Oracle
 
         IEnumerable<T> ReadProjectionResult(OracleDataReader reader)
         {
-            var projector = (System.Func<OracleDataReader, T>)_aggregate.Value.ValueSelector;
+            var projector = (Func<OracleDataReader, T>)_aggregate.Value.ValueSelector;
             while (reader.Read())
                 yield return projector(reader);
         }
@@ -313,26 +277,17 @@ namespace Linq2Oracle
             GenSql(sql);
         }
 
-        OracleDB IQueryContext.Db { get { return _context.Db; } }
+        OracleDB IQueryContext.Db => _context.Db;
 
-        public string TableName { get { return _context.TableName; } }
+        public string TableName => _context.TableName;
 
-        IQueryContext IQueryContext.OriginalSource
-        {
-            get { return _context.OriginalSource; }
-        }
+        IQueryContext IQueryContext.OriginalSource => _context.OriginalSource;
         #endregion
         #region IEnumerable<T> 成員
-        IEnumerator<T> IEnumerable<T>.GetEnumerator()
-        {
-            return _data.GetEnumerator();
-        }
+        IEnumerator<T> IEnumerable<T>.GetEnumerator() => _data.GetEnumerator();
         #endregion
         #region IEnumerable 成員
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return _data.GetEnumerator();
-        }
+        IEnumerator IEnumerable.GetEnumerator() => _data.GetEnumerator();
         #endregion
     }
 }

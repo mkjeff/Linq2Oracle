@@ -19,6 +19,6 @@ namespace Linq2Oracle
         {
             this.ColumnName = columnName;
         }
-        public string ColumnName { get; private set; }
+        public string ColumnName { get; }
     }
 }
