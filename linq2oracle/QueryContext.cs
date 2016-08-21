@@ -13,6 +13,7 @@ using Oracle.ManagedDataAccess.Types;
 namespace Linq2Oracle
 {
     using System.Reflection;
+    using System.Threading.Tasks;
     // (sql,selection,c)=>;
     using SqlGenerator = Action<SqlContext, string, Closure>;
 
@@ -382,7 +383,7 @@ namespace Linq2Oracle
         /// <param name="file"></param>
         /// <param name="line"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0) 
+        public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
             => new QueryContext<C, T, TR>(new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, _genSql, ColumnDefine);
 
         #endregion
@@ -542,11 +543,11 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbNumber Max<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        public NullableDbNumber<TValue> Max<TValue>(Func<C, DbNumber<TValue>> selector) where TValue : struct
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
-            return new NullableDbNumber(
-                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
 
@@ -556,11 +557,39 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbNumber Min<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        public NullableDbNumber<TValue> Min<TValue>(Func<C, DbNumber<TValue>> selector) where TValue : struct
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
-            return new NullableDbNumber(
-                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbNumber<TValue> Max<TValue>(Func<C, NullableDbNumber<TValue>> selector) where TValue : struct
+        {
+            var exprGen = Function.Call("MAX", selector(ColumnDefine));
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbNumber<TValue> Min<TValue>(Func<C, NullableDbNumber<TValue>> selector) where TValue : struct
+        {
+            var exprGen = Function.Call("MIN", selector(ColumnDefine));
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
@@ -586,7 +615,7 @@ namespace Linq2Oracle
         public NullableDbDateTime Min(Func<C, DbDateTime> selector)
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
-            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+            return new NullableDbDateTime(() => (DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
@@ -598,7 +627,7 @@ namespace Linq2Oracle
         public NullableDbDateTime Max(Func<C, NullableDbDateTime> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
-            return new NullableDbDateTime(() => (System.DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
+            return new NullableDbDateTime(() => (DateTime?)_AggregateFunction(exprGen), _AggregateFunctionExpression(exprGen));
         }
 
         /// <summary>
@@ -669,11 +698,25 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbNumber Sum<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        public NullableDbNumber<TValue> Sum<TValue>(Func<C, DbNumber<TValue>> selector) where TValue : struct
         {
             var exprGen = Function.Call("SUM", selector(ColumnDefine));
-            return new NullableDbNumber(
-                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+
+        /// <summary>
+        /// SQL SUM Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbNumber<TValue> Sum<TValue>(Func<C, NullableDbNumber<TValue>> selector) where TValue : struct
+        {
+            var exprGen = Function.Call("SUM", selector(ColumnDefine));
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
@@ -684,15 +727,96 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public NullableDbNumber Average<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        public NullableDbNumber<TValue> Average<TValue>(Func<C, DbNumber<TValue>> selector) where TValue : struct
         {
             Action<SqlContext> exprGen = sql => sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)");
-            return new NullableDbNumber(
-                valueProvider: () => (decimal?)_AggregateFunction(exprGen),
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
+                sqlBuilder: _AggregateFunctionExpression(exprGen));
+        }
+
+        /// <summary>
+        /// SQL AVG Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public NullableDbNumber<TValue> Average<TValue>(Func<C, NullableDbNumber<TValue>> selector) where TValue : struct
+        {
+            Action<SqlContext> exprGen = sql => sql.Append("ROUND(AVG(").Append(selector(ColumnDefine)).Append("),25)");
+            return new NullableDbNumber<TValue>(
+                valueProvider: () => (TValue?)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
 
+        #region MaxAsync / MinAsync for String
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<string> MaxAsync(Func<C, DbString> selector)
+            => _AsyncAggregateFunction<string>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
+
+        /// <summary>
+        /// SQL MIN Function
+        /// </summary>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<string> MinAsync(Func<C, DbString> selector)
+            => _AsyncAggregateFunction<string>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
+
+        #endregion
+        #region MaxAsync / MinAsync for value type
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
+            => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
+            => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
+            => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
+
+        /// <summary>
+        /// SQL MAX Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
+            => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
+
+        #endregion
+        #region SumAsync
+        /// <summary>
+        /// SQL SUM Function
+        /// </summary>
+        /// <typeparam name="TNumber"></typeparam>
+        /// <param name="selector"></param>
+        /// <returns></returns>
+        public Task<decimal?> SumAsync<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+            => _AsyncAggregateFunction<decimal?>(_AggregateFunctionExpression(Function.Call("SUM", selector(ColumnDefine))));
+
+        #endregion
         object _AggregateFunction(Action<SqlContext> exprGen)
         {
             var cc = _closure;
@@ -705,6 +829,21 @@ namespace Linq2Oracle
                 cmd.CommandText = sql.ToString();
                 var result = Db.ExecuteScalar(cmd);
                 return result == DBNull.Value ? null : result;
+            }
+        }
+
+        async Task<TValue> _AsyncAggregateFunction<TValue>(Action<SqlContext> exprGen)
+        {
+            var cc = _closure;
+            cc.Orderby = EmptyList<SortDescription>.Instance;
+            using (var cmd = Db.CreateCommand())
+            {
+                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
+                sql.Append("SELECT ").Append(exprGen);
+                _genSql(sql, string.Empty, cc);
+                cmd.CommandText = sql.ToString();
+                var result = await Db.ExecuteScalarAsync(cmd);
+                return result == DBNull.Value ? default(TValue) : (TValue)result;
             }
         }
 
@@ -722,12 +861,12 @@ namespace Linq2Oracle
         #endregion
         #region Count / LongCount
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
-        DbNumber _Count()
+        DbNumber<TValue> _Count<TValue>() where TValue : struct
         {
             var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             var selection = _projection.Value.SelectSql;
 
-            return new DbNumber(
+            return new DbNumber<TValue>(
                 valueProvider: () =>
                 {
                     using (var cmd = Db.CreateCommand())
@@ -752,7 +891,7 @@ namespace Linq2Oracle
                             _genSql(sql, "SELECT COUNT(*)", cc);
                         }
                         cmd.CommandText = sql.ToString();
-                        return (decimal)Db.ExecuteScalar(cmd);
+                        return (TValue)Db.ExecuteScalar(cmd);
                     }
                 },
                 sqlBuilder: sql =>
@@ -784,27 +923,67 @@ namespace Linq2Oracle
         /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public DbNumber Count() => _Count();
+        public DbNumber<int> Count() => _Count<int>();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public DbNumber Count(Func<C, SqlBoolean> predicate) => this.Where(predicate).Count();
+        public DbNumber<int> Count(Func<C, SqlBoolean> predicate) => this.Where(predicate).Count();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public DbNumber LongCount() => _Count();
+        public DbNumber<long> LongCount() => _Count<long>();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public DbNumber LongCount(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCount();
+        public DbNumber<long> LongCount(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCount();
+
+        async Task<TValue> _CountAsync<TValue>() where TValue : struct
+        {
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
+            var selection = _projection.Value.SelectSql;
+
+            using (var cmd = Db.CreateCommand())
+            {
+                var sql = new SqlContext(new StringBuilder(), cmd.Parameters);
+                if (_closure.Distinct)
+                {
+                    if (selection.IndexOf(',') == -1)
+                    {
+                        // select single column
+                        _genSql(sql, "SELECT COUNT(DISTINCT " + selection + ")", cc);
+                    }
+                    else
+                    {
+                        sql.Append("SELECT COUNT(*) FROM (");
+                        _genSql(sql, "SELECT DISTINCT " + selection, cc);
+                        sql.Append(")");
+                    }
+                }
+                else
+                {
+                    _genSql(sql, "SELECT COUNT(*)", cc);
+                }
+                cmd.CommandText = sql.ToString();
+                return (TValue)await Db.ExecuteScalarAsync(cmd);
+            }
+        }
+
+        public Task<int> CountAsync() => _CountAsync<int>();
+
+        public Task<int> CountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).CountAsync();
+
+        public Task<long> LongCountAsync() => _CountAsync<long>();
+
+        public Task<long> LongCountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCountAsync();
+
         #endregion
         #region Any / IsEmpty
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
@@ -833,6 +1012,22 @@ namespace Linq2Oracle
                 }));
 
         public BooleanContext Any(Func<C, SqlBoolean> predicate) => this.Where(predicate).Any();
+
+        public async Task<bool> AnyAsync()
+        {
+            var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
+            using (var cmd = Db.CreateCommand())
+            {
+                var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (EXISTS("), cmd.Parameters);
+                _genSql(sql, "SELECT NULL", cc);
+                sql.Append(")) THEN 1 ELSE 0 END value FROM DUAL");
+
+                cmd.CommandText = sql.ToString();
+                return (decimal)await Db.ExecuteScalarAsync(cmd) == 1;
+            }
+        }
+
+        public Task<bool> AnyAsync(Func<C, SqlBoolean> predicate) => Where(predicate).AnyAsync();
 
         public BooleanContext IsEmpty() => !Any();
         #endregion
@@ -865,6 +1060,26 @@ namespace Linq2Oracle
                     _genSql(sql, "SELECT NULL", cc);
                     sql.Append(") ");
                 }));
+        }
+
+        public async Task<bool> AllAsync(Func<C, SqlBoolean> predicate)
+        {
+            var filter = predicate(ColumnDefine);
+            if (!filter.IsVaild)
+                return false;
+
+            var cc = _closure;
+            cc.Orderby = EmptyList<SortDescription>.Instance;
+            cc.Filters = new List<SqlBoolean>(cc.Filters) { !filter };
+
+            using (var cmd = Db.CreateCommand())
+            {
+                var sql = new SqlContext(new StringBuilder("SELECT CASE WHEN (NOT EXISTS("), cmd.Parameters);
+                _genSql(sql, "SELECT NULL", cc);
+                sql.Append(")) THEN 1 ELSE 0 END value FROM DUAL");
+                cmd.CommandText = sql.ToString();
+                return (decimal)await Db.ExecuteScalarAsync(cmd) == 1;
+            }
         }
         #endregion
         #region ForUpdate(Row Lock)

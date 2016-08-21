@@ -130,23 +130,23 @@ namespace Linq2Oracle
             ColumnDefine = columnDefine;
         }
 
-        public DbNumber Count() 
-            => Function.Count().Create<DbNumber>();
+        public DbNumber<int> Count() 
+            => Function.Count().Create<DbNumber<int>>();
 
-        public DbNumber LongCount() 
-            => Function.Count().Create<DbNumber>();
+        public DbNumber<long> LongCount() 
+            => Function.Count().Create<DbNumber<long>>();
 
-        public DbNumber Average(Func<C, DbNumber> selector) 
-            => Call("AVG", selector(ColumnDefine)).Create<DbNumber>();
+        public DbNumber<TValue> Average<TValue>(Func<C, DbNumber<TValue>> selector) where TValue:struct
+            => Call("AVG", selector(ColumnDefine)).Create<DbNumber<TValue>>();
 
-        public NullableDbNumber Average(Func<C, NullableDbNumber> selector) 
-            => Call("AVG", selector(ColumnDefine)).Create<NullableDbNumber>();
+        public NullableDbNumber<TValue> Average<TValue>(Func<C, NullableDbNumber<TValue>> selector)  where TValue:struct
+            => Call("AVG", selector(ColumnDefine)).Create<NullableDbNumber<TValue>>();
 
-        public DbNumber Sum(Func<C, DbNumber> selector) 
-            => Call("SUM", selector(ColumnDefine)).Create<DbNumber>();
+        public DbNumber<TValue> Sum<TValue>(Func<C, DbNumber<TValue>> selector) where TValue : struct
+            => Call("SUM", selector(ColumnDefine)).Create<DbNumber<TValue>>();
 
-        public NullableDbNumber Sum(Func<C, NullableDbNumber> selector) 
-            => Call("SUM", selector(ColumnDefine)).Create<NullableDbNumber>();
+        public NullableDbNumber<TValue> Sum<TValue>(Func<C, NullableDbNumber<TValue>> selector) where TValue : struct
+            => Call("SUM", selector(ColumnDefine)).Create<NullableDbNumber<TValue>>();
 
         public TColumn Max<TColumn>(Func<C, TColumn> selector) where TColumn : struct, IDbExpression 
             => Call("MAX", selector(ColumnDefine)).Create<TColumn>();

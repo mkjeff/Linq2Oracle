@@ -4,6 +4,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
 using Oracle.ManagedDataAccess.Client;
 
 namespace Linq2Oracle
@@ -98,6 +99,11 @@ namespace Linq2Oracle
         public int ExecuteNonQuery(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteNonQuery();
 
         public OracleDataReader ExecuteReader(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteReader();
+
+        public Task<object> ExecuteScalarAsync(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteScalarAsync();
+
+        public Task<int> ExecuteNonQueryAsync(OracleCommand cmd) => PrepareDbCommand(cmd).ExecuteNonQueryAsync();
+
         #endregion
         #region Batch Query
         public void BatchQuery(params IQueryContext[] querys)
@@ -689,6 +695,555 @@ namespace Linq2Oracle
                         ParameterDirection.Input);
                 #endregion
                 if (ExecuteNonQuery(cmd) != -1)
+                    throw new DalException(DbErrorCode.E_DB_EXEC_PROCEDURE_FAIL, "InsertOrUpdate Failed");
+            }
+            foreach (var t in list)
+            {
+                t.ChangedMap.Clear();
+                t.IsLoaded = true;
+            }
+            return list;
+        }
+        #endregion
+        #region Batch Query Async
+        public Task BatchQueryAsync(params IQueryContext[] querys)
+        {
+            using (var cmd = this.CreateCommand())
+            {
+                var sql = new SqlContext(new StringBuilder("BEGIN\n", 512 * querys.Length), cmd.Parameters);
+                bool valid = false;
+                foreach (var q in querys)
+                    if (q.Db == this)
+                    {
+                        var refParam = cmd.Parameters.Add(cmd.Parameters.Count.ToString(), OracleDbType.RefCursor, ParameterDirection.Output);
+                        sql.Append("OPEN :")
+                          .Append(refParam.ParameterName)
+                          .Append(" FOR ");
+                        q.GenBatchSql(sql, refParam);
+                        sql.Append(";\n");
+                        valid = true;
+                    }
+                if (!valid) return Task.FromResult(0);
+                sql.Append("END;");
+                cmd.CommandText = sql.ToString();
+                return ExecuteNonQueryAsync(cmd);
+            }
+        }
+        #endregion
+        #region InsertAsync
+        /// <summary>
+        /// Insert new record
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="t">entity object</param>
+        public async Task<T> InsertAsync<T>(T t) where T : DbEntity
+        {
+            t.OnSaving();
+            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn))
+            {
+                foreach (var c in Table<T>.DbColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        c.GetValue(t),
+                        ParameterDirection.Input);
+
+                if (await ExecuteNonQueryAsync(cmd) != 1)
+                    throw new DalException(DbErrorCode.E_DB_INSERT_FAIL, "資料庫新增紀錄失敗");
+            }
+            t.ChangedMap.Clear();
+            t.IsLoaded = true;
+            return t;
+        }
+
+        /// <summary>
+        /// Batch Insert
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="list">insert list</param>
+        public async Task<IEnumerable<T>> InsertAsync<T>(params T[] list) where T : DbEntity
+        {
+            if (list.Length == 0)
+                return list;
+
+            foreach (var t in list)
+            {
+                t.OnSaving();
+                t.IsLoaded = true;
+                t.ChangedMap.Clear();
+            }
+
+            using (var cmd = new OracleCommand(Table<T>.InsertSql, _conn))
+            {
+                cmd.ArrayBindCount = list.Length;
+                foreach (var column in Table<T>.DbColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        column.DbType,
+                        column.Size,
+                        list.ConvertAll(t => column.GetValue(t)),
+                        ParameterDirection.Input);
+
+                await ExecuteNonQueryAsync(cmd);
+            }
+            return list;
+        }
+
+        /// <summary>
+        /// Batch Insert
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="list">insert list</param>
+        public Task<IEnumerable<T>> InsertAsync<T>(IEnumerable<T> list) where T : DbEntity => InsertAsync(list.ToArray());
+        #endregion
+        #region DeleteAsync
+        public async Task<bool> DeleteAsync<T>(T t) where T : DbEntity
+        {
+            if (Table<T>.PkColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵, 必須使用另一個多載方法提供Where條件");
+
+            using (var cmd = CreateCommand())
+            {
+                cmd.CommandText = Table<T>.DeleteWithPK;
+                foreach (var c in Table<T>.PkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        CheckPkNull(c.ColumnName, c.GetValue(t)),
+                        ParameterDirection.Input);
+
+                t.IsLoaded = false;
+                t.ChangedMap.Clear();
+                if (await ExecuteNonQueryAsync(cmd) == 1)
+                    return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 刪除多筆紀錄，用於刪除已經讀取的紀錄
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public Task<int> DeleteAsync<T>(IEnumerable<T> list) where T : DbEntity => DeleteAsync(list.ToArray());
+
+        /// <summary>
+        /// 刪除多筆紀錄，用於刪除已經讀取的紀錄
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public Task<int> DeleteAsync<T>(params T[] list) where T : DbEntity
+        {
+            if (Table<T>.PkColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵, 必須使用另一個多載方法提供Where條件");
+
+            if (list.Length == 0)
+                return Task.FromResult(0);
+
+            foreach (var t in list)
+            {
+                t.IsLoaded = false;
+                t.ChangedMap.Clear();
+            }
+
+            using (var cmd = this.CreateCommand())
+            {
+                cmd.ArrayBindCount = list.Length;
+                cmd.CommandText = Table<T>.DeleteWithPK;
+                foreach (var c in Table<T>.PkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        list.ConvertAll(t => CheckPkNull(c.ColumnName, c.GetValue(t))),
+                        ParameterDirection.Input);
+
+                return ExecuteNonQueryAsync(cmd);
+            }
+        }
+        #endregion
+        #region UpdateAsync
+        /// <summary>
+        /// 更新單筆紀錄
+        /// </summary>
+        /// <remarks>
+        /// 更新模式有兩種
+        /// 1. 已載入情況下的更新; 實體有經過查詢(Query)下的更新,這種情況下只有變更的欄位會更新
+        /// 2. 未經載入情況下的更新; 這種情況下會對實體的所有欄位做更新
+        /// 
+        /// 在模式2的情況下,如果實體有主鍵,則不會使用樂觀同步欄位當做更新條件
+        /// </remarks>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="t">entity object</param>
+        /// <returns>effect row count is 1 return true,otherwise false </returns>
+        public async Task<bool> UpdateAsync<T>(T t) where T : DbEntity
+        {
+            if (Table<T>.PkColumns.Length == 0 && Table<T>.FixedColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵且沒有樂觀同步欄位, 必須使用另一個多載方法提供Where條件");
+
+            t.OnSaving();
+            if (t.IsLoaded && !t.IsChanged)
+                return true;//no column need update
+
+            object value = null;//for column value
+            using (var cmd = this.CreateCommand())
+            {
+                var sql = new StringBuilder();
+                if (t.IsLoaded)
+                {
+                    #region update changed only
+                    sql.Append("UPDATE ").AppendLine(Table<T>.TableName)
+                       .Append("SET ");
+                    for (int i = 0, cnt = t.ChangedMap.Keys.Count; i < cnt; i++)
+                    {
+                        if (i != 0) sql.Append(',');
+                        var c = Table<T>.DbColumns[t.ChangedMap.Keys[i]];
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, c.GetValue(t));
+                    }
+
+                    sql.AppendLine().Append("WHERE ");
+                    //pk condition
+                    for (int i = 0, cnt = Table<T>.PkColumns.Length; i < cnt; i++)
+                    {
+                        if (i != 0) sql.Append(" AND ");
+                        var c = Table<T>.PkColumns[i];
+                        sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)));
+                    }
+
+                    if (Table<T>.FixedColumns.Length != 0)
+                    {
+                        if (Table<T>.PkColumns.Length != 0)
+                            sql.Append(" AND ");
+                        // fixed column condition
+                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                        {
+                            if (i != 0) sql.Append(" AND ");
+                            var c = Table<T>.FixedColumns[i];
+                            sql.Append(c.QuotesColumnName);
+                            if ((value = t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)) == null)
+                                sql.Append(" IS NULL");
+                            else
+                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
+                        }
+                    }
+                    #endregion
+                }
+                else
+                {
+                    #region full row update
+                    sql.Append(Table<T>.FullUpdateSql);
+                    foreach (var c in Table<T>.NonPkColumns)
+                        cmd.Parameters.Add(
+                            cmd.Parameters.Count.ToString(),
+                            c.DbType,
+                            c.Size,
+                            c.GetValue(t),
+                            ParameterDirection.Input);
+
+                    foreach (var c in Table<T>.PkColumns)
+                        cmd.Parameters.Add(
+                            cmd.Parameters.Count.ToString(),
+                            c.DbType,
+                            c.Size,
+                            CheckPkNull(c.ColumnName, c.GetValue(t)),
+                            ParameterDirection.Input);
+
+                    if (Table<T>.PkColumns.Length == 0)
+                    {
+                        //沒有主鍵才會用到樂觀同步欄位
+                        for (int i = 0, cnt = Table<T>.FixedColumns.Length; i < cnt; i++)
+                        {
+                            if (i != 0) sql.Append(" AND ");
+                            var c = Table<T>.FixedColumns[i];
+                            sql.Append(c.QuotesColumnName);
+                            if ((value = c.GetValue(t)) == null)
+                                sql.Append(" IS NULL");
+                            else
+                                sql.Append(" = ").AppendParam(cmd.Parameters, c.DbType, value);
+                        }
+                    }
+                    #endregion
+                }
+
+                cmd.CommandText = sql.ToString();
+                if (await ExecuteNonQueryAsync(cmd) == 1)
+                {
+                    t.IsLoaded = true;
+                    t.ChangedMap.Clear();
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 更新多筆紀錄
+        /// </summary>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="list">update list</param>
+        /// <returns>effect row count</returns>
+        public Task<int> UpdateAsync<T>(IEnumerable<T> list) where T : DbEntity => UpdateAsync(list.ToArray());
+
+        /// <summary>
+        /// 批次更新
+        /// </summary>
+        /// <remarks>
+        /// 更新模式有兩種
+        /// 1. 已載入情況下的更新; 實體有經過查詢(Query)下的更新,這種情況下只有變更的欄位會更新
+        /// 2. 未經載入情況下的更新; 這種情況下會對實體的所有欄位做更新
+        ///
+        /// 在模式2的情況下,如果實體有主鍵,則不會使用樂觀同步欄位當做更新條件;
+        /// 如果沒有主鍵則必須所有的樂觀同步欄位值都不是NULL才能批次更新
+        /// </remarks>
+        /// <typeparam name="T">Entity type</typeparam>
+        /// <param name="list">update list</param>
+        /// <returns>effect row count</returns>
+        public Task<int> UpdateAsync<T>(params T[] list) where T : DbEntity
+        {
+            if (Table<T>.PkColumns.Length == 0 && Table<T>.FixedColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_SQL_INVAILD, Table<T>.TableName + "沒有主鍵且沒有樂觀同步欄位, 必須使用另一個多載方法提供Where條件");
+
+            Action<T> updatedComplete = t =>
+            {
+                t.IsLoaded = true;
+                t.ChangedMap.Clear();
+            };
+
+            var tasks = list.ToLookup(t => t.IsLoaded).SelectMany(group =>
+              {
+                  if (group.Key)
+                  {
+                      #region Changed only update
+                      return group.GroupBy(e => e.ChangedMap, (changedColumns, g) =>
+                        {
+                            int count = g.Count();
+                            if (changedColumns.Count == 0) return Task.FromResult(count); // loaded ,but no change
+                          if (count == 1) return UpdateAsync(g.First()).ContinueWith(c => c.Result ? 1 : 0); // single row update command 
+
+                          using (var cmd = this.CreateCommand())
+                            {
+                                cmd.ArrayBindCount = count;
+
+                                object value = null; // for changed value
+
+                              var sql = new StringBuilder("UPDATE ").AppendLine(Table<T>.TableName)
+                                    .Append("SET ");
+                                for (int i = 0; i < changedColumns.Keys.Count; i++)
+                                {
+                                    if (i != 0) sql.Append(',');
+                                    var c = Table<T>.DbColumns[changedColumns.Keys[i]];
+                                    sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, g.Select(t => c.GetValue(t)).ToArray());
+                                }
+                                sql.AppendLine().Append("WHERE ");
+
+                                for (int i = 0; i < Table<T>.PkColumns.Length; i++)
+                                {
+                                    if (i != 0) sql.Append(" AND ");
+                                    var c = Table<T>.PkColumns[i];
+                                    sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
+                                        g.Select(t => CheckPkNull(c.ColumnName, t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t))).ToArray());
+                                }
+
+                                if (Table<T>.FixedColumns.Length != 0)
+                                {
+                                    if (Table<T>.PkColumns.Length != 0)
+                                        sql.Append(" AND ");
+                                    for (int i = 0; i < Table<T>.FixedColumns.Length; i++)
+                                    {
+                                        if (i != 0) sql.Append(" AND ");
+                                        var c = Table<T>.FixedColumns[i];
+                                        if ((g.First().ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(g.First())) == null)
+                                            sql.Append(c.QuotesColumnName).Append(" IS NULL");
+                                        else
+                                            sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType,
+                                                g.Select(t => t.ChangedMap.TryGetValue(c.ColumnIndex, out value) ? value : c.GetValue(t)).ToArray());
+                                    }
+                                }
+
+                                cmd.CommandText = sql.ToString();
+                                return ExecuteNonQueryAsync(cmd).ContinueWith(c =>
+                                {
+                                    if (c.Result == cmd.ArrayBindCount)
+                                        g.ForEach(updatedComplete);
+                                    return c.Result;
+                                });
+                            }
+                        }, comparer: ChangedGroupComparer<T>.Instance);
+                      #endregion
+                  }
+                  else
+                  {
+                      #region Full row update
+                      int count = group.Count();
+                      if (count == 1) return EnumerableEx.Return(UpdateAsync(group.First()).ContinueWith(c => c.Result ? 1 : 0)); // single row update command
+
+                      using (var cmd = this.CreateCommand())
+                      {
+                          cmd.ArrayBindCount = count;
+                          var sql = new StringBuilder(Table<T>.FullUpdateSql);
+
+                          foreach (var c in Table<T>.NonPkColumns)
+                              cmd.Parameters.Add(
+                                  cmd.Parameters.Count.ToString(),
+                                  c.DbType,
+                                  c.Size,
+                                  group.Select(t => c.GetValue(t)).ToArray(),
+                                  ParameterDirection.Input);
+
+                          foreach (var c in Table<T>.PkColumns)
+                              cmd.Parameters.Add(
+                                  cmd.Parameters.Count.ToString(),
+                                  c.DbType,
+                                  c.Size,
+                                  group.Select(t => CheckPkNull(c.ColumnName, c.GetValue(t))).ToArray(),
+                                  ParameterDirection.Input);
+
+                          if (Table<T>.PkColumns.Length == 0)
+                              for (int i = 0; i < Table<T>.FixedColumns.Length; i++)
+                              {
+                                  if (i != 0) sql.Append(" AND ");
+                                  var c = Table<T>.FixedColumns[i];
+                                  sql.Append(c.QuotesColumnName).Append(" = ").AppendParam(cmd.Parameters, c.DbType, group.Select(t =>
+                                  {
+                                      object value = c.GetValue(t);
+                                      if (value == null) throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "無載入模式下的批次更新作業且沒有主鍵情況下而使用樂觀同步欄位當做更新條件時,欄位值不能為NULL");
+                                      return value;
+                                  }).ToArray());
+                              }
+
+                          cmd.CommandText = sql.ToString();
+                          return EnumerableEx.Return(ExecuteNonQueryAsync(cmd).ContinueWith(c =>
+                          {
+                              if (c.Result == cmd.ArrayBindCount)
+                                  group.ForEach(updatedComplete);
+                              return c.Result;
+                          }));
+                      }
+                      #endregion
+                  }
+              });
+
+            return Task.WhenAll(tasks).ContinueWith(all => all.Result.Sum());
+        }
+
+        #endregion
+        #region InsertOrUpdateAsync
+        /// <summary>
+        /// 只有未經讀取(Query)的資料才可以使用InsertOrUpdate，否則必須明確使用Update方法來更新
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public async Task<T> InsertOrUpdateAsync<T>(T t) where T : DbEntity
+        {
+            if (Table<T>.PkColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "必需要有Primary Key才能執行InsertOrUpdate");
+
+            if (t.IsLoaded)
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "只有未經讀取(Query)的資料才可以使用InsertOrUpdate，否則必須明確使用Update方法來更新");
+
+            t.OnSaving();
+
+            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn))
+            {
+                #region Condition
+                foreach (var c in Table<T>.PkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        c.GetValue(t),
+                        ParameterDirection.Input);
+                #endregion
+                #region Update
+                foreach (var c in Table<T>.NonPkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        c.GetValue(t),
+                        ParameterDirection.Input);
+                #endregion
+                #region Insert
+                foreach (var c in Table<T>.DbColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        c.GetValue(t),
+                        ParameterDirection.Input);
+                #endregion
+                if (await ExecuteNonQueryAsync(cmd) != -1)
+                    throw new DalException(DbErrorCode.E_DB_EXEC_PROCEDURE_FAIL, "InsertOrUpdate Failed");
+            }
+            t.ChangedMap.Clear();
+            t.IsLoaded = true;
+            return t;
+        }
+
+        /// <summary>
+        /// Batch Insert/Update
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public Task<IEnumerable<T>> InsertOrUpdateAsync<T>(IEnumerable<T> list) where T : DbEntity => InsertOrUpdateAsync(list.ToArray());
+
+        /// <summary>
+        /// Batch Insert/Update
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="list"></param>
+        /// <returns></returns>
+        public async Task<IEnumerable<T>> InsertOrUpdateAsync<T>(params T[] list) where T : DbEntity
+        {
+            if (list.Length == 0)
+                return list;
+
+            if (Table<T>.PkColumns.Length == 0)
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "必需要有Primary Key才能執行InsertOrUpdate");
+
+            if (list.Any(t => t.IsLoaded))
+                throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "只有未經讀取(Query)的資料才可以使用InsertOrUpdate，否則必須明確使用Update方法來更新");
+
+            foreach (var t in list)
+                t.OnSaving();
+
+            using (var cmd = new OracleCommand(Table<T>.InsertOrUpdateSql, _conn))
+            {
+                cmd.ArrayBindCount = list.Length;
+                #region Condition
+                foreach (var c in Table<T>.PkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        list.ConvertAll(t => c.GetValue(t)),
+                        ParameterDirection.Input);
+                #endregion
+                #region Update
+                foreach (var c in Table<T>.NonPkColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        list.ConvertAll(t => c.GetValue(t)),
+                        ParameterDirection.Input);
+                #endregion
+                #region Insert
+                foreach (var c in Table<T>.DbColumns)
+                    cmd.Parameters.Add(
+                        cmd.Parameters.Count.ToString(),
+                        c.DbType,
+                        c.Size,
+                        list.ConvertAll(t => c.GetValue(t)),
+                        ParameterDirection.Input);
+                #endregion
+                if (await ExecuteNonQueryAsync(cmd) != -1)
                     throw new DalException(DbErrorCode.E_DB_EXEC_PROCEDURE_FAIL, "InsertOrUpdate Failed");
             }
             foreach (var t in list)

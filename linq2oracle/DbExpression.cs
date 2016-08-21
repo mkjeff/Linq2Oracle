@@ -68,13 +68,13 @@ namespace Linq2Oracle.Expressions
         [Obsolete("Invalid SQL expression")]
         public new SqlBoolean Equals(object obj) => obj is DbString ? this == (DbString)obj : new SqlBoolean();
 
-        public DbString Substring(int startIndex, int length) => Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1), (DbNumber)length).Create<DbString>();
+        public DbString Substring(int startIndex, int length) => Function.Call("SUBSTR", this, (DbNumber<int>)(startIndex + 1), (DbNumber<int>)length).Create<DbString>();
 
-        public DbString Substring(DbNumber startIndex, DbNumber length) => Function.Call("SUBSTR", this, startIndex, length).Create<DbString>();
+        public DbString Substring(DbNumber<int> startIndex, DbNumber<int> length) => Function.Call("SUBSTR", this, startIndex, length).Create<DbString>();
 
-        public DbString Substring(int startIndex) => Function.Call("SUBSTR", this, (DbNumber)(startIndex + 1)).Create<DbString>();
+        public DbString Substring(int startIndex) => Function.Call("SUBSTR", this, (DbNumber<int>)(startIndex + 1)).Create<DbString>();
 
-        public DbString Substring(DbNumber startIndex) => Function.Call("SUBSTR", this, startIndex).Create<DbString>();
+        public DbString Substring(DbNumber<int> startIndex) => Function.Call("SUBSTR", this, startIndex).Create<DbString>();
 
         public DbString Trim() => Function.Call("TRIM", this).Create<DbString>();
 
@@ -87,11 +87,11 @@ namespace Linq2Oracle.Expressions
         public DbString ToUpper() => Function.Call("UPPER", this).Create<DbString>();
         #endregion
         #region Properties
-        public DbNumber Length => Function.Call("LENGTH", this).Create<DbNumber>();
+        public DbNumber<int> Length => Function.Call("LENGTH", this).Create<DbNumber<int>>();
 
-        public DbChar this[int index] => Function.Call("SUBSTR", this, (DbNumber)(index + 1), (DbNumber)1).Create<DbChar>();
+        public DbChar this[int index] => Function.Call("SUBSTR", this, (DbNumber<int>)(index + 1), (DbNumber<int>)1).Create<DbChar>();
 
-        public DbChar this[DbNumber index] => Function.Call("SUBSTR", this, index, (DbNumber)1).Create<DbChar>();
+        public DbChar this[DbNumber<int> index] => Function.Call("SUBSTR", this, index, (DbNumber<int>)1).Create<DbChar>();
         #endregion
         #region IDbExpression
         SqlGenerator _sqlBuilder;
@@ -270,104 +270,66 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region Number
-    public struct DbNumber : IDbNumber,
-        IDbExpression<short>,
-        IDbExpression<int>,
-        IDbExpression<long>,
-        IDbExpression<float>,
-        IDbExpression<double>,
-        IDbExpression<decimal>
+    public struct DbNumber<T> : IDbNumber, IDbExpression<T> where T : struct
     {
-        readonly Func<decimal> _valueProvider;
-        internal DbNumber(Func<decimal> valueProvider, Action<SqlContext> sqlBuilder)
+        readonly Func<T> _valueProvider;
+        internal DbNumber(Func<T> valueProvider, Action<SqlContext> sqlBuilder)
         {
             _valueProvider = valueProvider;
             _sqlBuilder = sqlBuilder;
         }
         #region Conversion Operator
 
-        public static implicit operator short(DbNumber @this) => (short)@this._valueProvider();
+        public static implicit operator T(DbNumber<T> @this) => (T)@this._valueProvider();
 
-        public static implicit operator int(DbNumber @this) => (int)@this._valueProvider();
+        public static implicit operator NullableDbNumber<T>(DbNumber<T> @this) => new NullableDbNumber<T>(() => @this._valueProvider(), @this._sqlBuilder);
 
-        public static implicit operator long(DbNumber @this) => (long)@this._valueProvider();
+        static DbNumber<T> Create(T value) => SqlParameter.Create(value).Create<DbNumber<T>>();
 
-        public static implicit operator float(DbNumber @this) => (float)@this._valueProvider();
+        static DbNumber<T> Create(T? value) => SqlParameter.Create(value).Create<DbNumber<T>>();
 
-        public static implicit operator double(DbNumber @this) => (double)@this._valueProvider();
-
-        public static implicit operator decimal(DbNumber @this) => @this._valueProvider();
-
-        static DbNumber Create<T>(T value) where T : struct => SqlParameter.Create(value).Create<DbNumber>();
-
-        static DbNumber Create<T>(T? value) where T : struct => SqlParameter.Create(value).Create<DbNumber>();
-
-        public static implicit operator DbNumber(short value) => Create(value);
-
-        public static implicit operator DbNumber(int value) => Create(value);
-
-        public static implicit operator DbNumber(long value) => Create(value);
-
-        public static implicit operator DbNumber(float value) => Create(value);
-
-        public static implicit operator DbNumber(double value) => Create(value);
-
-        public static implicit operator DbNumber(decimal value) => Create(value);
+        public static implicit operator DbNumber<T>(T value) => Create(value);
 
         // C# / Visual Studio bug. if Obsolete as error, compiler will choose other version,but code editor tooltip display wrong overloaded method.
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(short? value) => Create(value);
+        [Obsolete("This is an unsafe conversion", true)]
+        public static implicit operator DbNumber<T>(T? value) => Create(value);
 
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(int? value) => Create(value);
-
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(long? value) => Create(value);
-
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(float? value) => Create(value);
-
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(double? value) => Create(value);
-
-        [Obsolete("This is an unsafe conversion", false)]
-        public static implicit operator DbNumber(decimal? value) => Create(value);
         #endregion
         #region Comparision Operator
-        public static SqlBoolean operator ==(DbNumber a, DbNumber b) => a.IsEquals(b);
+        public static SqlBoolean operator ==(DbNumber<T> a, DbNumber<T> b) => a.IsEquals(b);
 
-        public static SqlBoolean operator !=(DbNumber a, DbNumber b) => a.NotEquals(b);
+        public static SqlBoolean operator !=(DbNumber<T> a, DbNumber<T> b) => a.NotEquals(b);
 
-        public static SqlBoolean operator >(DbNumber a, DbNumber b) => a.GreatThan(b);
+        public static SqlBoolean operator >(DbNumber<T> a, DbNumber<T> b) => a.GreatThan(b);
 
-        public static SqlBoolean operator >=(DbNumber a, DbNumber b) => a.GreatThanOrEquals(b);
+        public static SqlBoolean operator >=(DbNumber<T> a, DbNumber<T> b) => a.GreatThanOrEquals(b);
 
-        public static SqlBoolean operator <(DbNumber a, DbNumber b) => a.LessThan(b);
+        public static SqlBoolean operator <(DbNumber<T> a, DbNumber<T> b) => a.LessThan(b);
 
-        public static SqlBoolean operator <=(DbNumber a, DbNumber b) => a.LessThanOrEquals(b);
+        public static SqlBoolean operator <=(DbNumber<T> a, DbNumber<T> b) => a.LessThanOrEquals(b);
         #endregion
         #region Custom Operator
-        public static DbNumber operator +(DbNumber a) => Operatior.Unary("+", a).Create<DbNumber>();
+        public static DbNumber<T> operator +(DbNumber<T> a) => Operatior.Unary("+", a).Create<DbNumber<T>>();
 
-        public static DbNumber operator -(DbNumber a) => Operatior.Unary("-", a).Create<DbNumber>();
+        public static DbNumber<T> operator -(DbNumber<T> a) => Operatior.Unary("-", a).Create<DbNumber<T>>();
 
-        public static DbNumber operator +(DbNumber a, DbNumber b) => Operatior.Binary(a, "+", b).Create<DbNumber>();
+        public static DbNumber<T> operator +(DbNumber<T> a, DbNumber<T> b) => Operatior.Binary(a, "+", b).Create<DbNumber<T>>();
 
-        public static DbNumber operator -(DbNumber a, DbNumber b) => Operatior.Binary(a, "-", b).Create<DbNumber>();
+        public static DbNumber<T> operator -(DbNumber<T> a, DbNumber<T> b) => Operatior.Binary(a, "-", b).Create<DbNumber<T>>();
 
-        public static DbNumber operator *(DbNumber a, DbNumber b) => Operatior.Binary(a, "-", b).Create<DbNumber>();
+        public static DbNumber<T> operator *(DbNumber<T> a, DbNumber<T> b) => Operatior.Binary(a, "-", b).Create<DbNumber<T>>();
 
-        public static DbNumber operator /(DbNumber a, DbNumber b) => Operatior.Binary(a, "-", b).Create<DbNumber>();
+        public static DbNumber<T> operator /(DbNumber<T> a, DbNumber<T> b) => Operatior.Binary(a, "-", b).Create<DbNumber<T>>();
 
-        public static DbNumber operator %(DbNumber a, DbNumber b) => Function.Call("MOD", a, b).Create<DbNumber>();
+        public static DbNumber<T> operator %(DbNumber<T> a, DbNumber<T> b) => Function.Call("MOD", a, b).Create<DbNumber<T>>();
         #endregion
         #region Methods
-        public SqlBoolean Equals(DbNumber other) => this == other;
+        public SqlBoolean Equals(DbNumber<T> other) => this == other;
 
         [Obsolete("Invalid SQL expression")]
-        public new SqlBoolean Equals(object obj) => obj is DbNumber ? this == (DbNumber)obj : new SqlBoolean();
+        public new SqlBoolean Equals(object obj) => obj is DbNumber<T> ? this == (DbNumber<T>)obj : new SqlBoolean();
 
-        internal NullableDbNumber ToNullable() => this._sqlBuilder.Create<NullableDbNumber>();
+        internal NullableDbNumber<T> ToNullable() => this._sqlBuilder.Create<NullableDbNumber<T>>();
         #endregion
         #region IDbExpression
         SqlGenerator _sqlBuilder;
@@ -527,78 +489,51 @@ namespace Linq2Oracle.Expressions
     #endregion
 
     #region Number?
-    public struct NullableDbNumber : IDbNumber,
-        IDbExpression<short?>,
-        IDbExpression<int?>,
-        IDbExpression<long?>,
-        IDbExpression<float?>,
-        IDbExpression<double?>,
-        IDbExpression<decimal?>
+    public struct NullableDbNumber<T> : IDbNumber, IDbExpression<T?> where T : struct
     {
-        readonly Func<decimal?> _valueProvider;
+        readonly Func<T?> _valueProvider;
 
-        internal NullableDbNumber(Func<decimal?> valueProvider, Action<SqlContext> sqlBuilder)
+        internal NullableDbNumber(Func<T?> valueProvider, Action<SqlContext> sqlBuilder)
         {
             _valueProvider = valueProvider;
             _sqlBuilder = sqlBuilder;
         }
 
-        public DbNumber GetValueOrDefault(DbNumber defaultValue) => Function.Call("NVL", this, defaultValue).Create<DbNumber>();
+        public DbNumber<T> GetValueOrDefault(DbNumber<T> defaultValue) => Function.Call("NVL", this, defaultValue).Create<DbNumber<T>>();
 
         #region Conversion Operator
-        public static implicit operator short? (NullableDbNumber @this) => (short?)@this._valueProvider();
+        public static implicit operator T? (NullableDbNumber<T> @this) => (T?)@this._valueProvider();
 
-        public static implicit operator int? (NullableDbNumber @this) => (int?)@this._valueProvider();
+        static NullableDbNumber<T> Create<T>(T? value) where T : struct => !value.HasValue ? new NullableDbNumber<T>() : SqlParameter.Create(value.Value).Create<NullableDbNumber<T>>();
 
-        public static implicit operator long? (NullableDbNumber @this) => (long?)@this._valueProvider();
+        public static implicit operator NullableDbNumber<T>(T? value) => Create(value);
 
-        public static implicit operator float? (NullableDbNumber @this) => (float?)@this._valueProvider();
-
-        public static implicit operator double? (NullableDbNumber @this) => (double?)@this._valueProvider();
-
-        public static implicit operator decimal? (NullableDbNumber @this) => @this._valueProvider();
-
-        public static implicit operator NullableDbNumber(DbNumber value) => value.ToNullable();
-
-        static NullableDbNumber Create<T>(T? value) where T : struct => !value.HasValue ? new NullableDbNumber() : SqlParameter.Create(value.Value).Create<NullableDbNumber>();
-
-        public static implicit operator NullableDbNumber(short? value) => Create(value);
-
-        public static implicit operator NullableDbNumber(int? value) => Create(value);
-
-        public static implicit operator NullableDbNumber(long? value) => Create(value);
-
-        public static implicit operator NullableDbNumber(float? value) => Create(value);
-
-        public static implicit operator NullableDbNumber(double? value) => Create(value);
-
-        public static implicit operator NullableDbNumber(decimal? value) => Create(value);
         #endregion
         #region Comparision Operator
-        public static SqlBoolean operator ==(NullableDbNumber a, NullableDbNumber b) => a.IsEquals(b);
+        public static SqlBoolean operator ==(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.IsEquals(b);
 
-        public static SqlBoolean operator !=(NullableDbNumber a, NullableDbNumber b) => a.NotEquals(b);
+        public static SqlBoolean operator !=(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.NotEquals(b);
 
-        public static SqlBoolean operator >(NullableDbNumber a, NullableDbNumber b) => a.GreatThan(b);
+        public static SqlBoolean operator >(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.GreatThan(b);
 
-        public static SqlBoolean operator >=(NullableDbNumber a, NullableDbNumber b) => a.GreatThanOrEquals(b);
+        public static SqlBoolean operator >=(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.GreatThanOrEquals(b);
 
-        public static SqlBoolean operator <(NullableDbNumber a, NullableDbNumber b) => a.LessThan(b);
+        public static SqlBoolean operator <(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.LessThan(b);
 
-        public static SqlBoolean operator <=(NullableDbNumber a, NullableDbNumber b) => a.LessThanOrEquals(b);
+        public static SqlBoolean operator <=(NullableDbNumber<T> a, NullableDbNumber<T> b) => a.LessThanOrEquals(b);
         #endregion
         #region Custom Operator
-        public static NullableDbNumber operator +(NullableDbNumber a) => Operatior.Unary("+", a).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator +(NullableDbNumber<T> a) => Operatior.Unary("+", a).Create<NullableDbNumber<T>>();
 
-        public static NullableDbNumber operator -(NullableDbNumber a) => Operatior.Unary("-", a).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator -(NullableDbNumber<T> a) => Operatior.Unary("-", a).Create<NullableDbNumber<T>>();
 
-        public static NullableDbNumber operator +(NullableDbNumber a, NullableDbNumber b) => Operatior.Binary(a, "+", b).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator +(NullableDbNumber<T> a, NullableDbNumber<T> b) => Operatior.Binary(a, "+", b).Create<NullableDbNumber<T>>();
 
-        public static NullableDbNumber operator -(NullableDbNumber a, NullableDbNumber b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator -(NullableDbNumber<T> a, NullableDbNumber<T> b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber<T>>();
 
-        public static NullableDbNumber operator *(NullableDbNumber a, NullableDbNumber b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator *(NullableDbNumber<T> a, NullableDbNumber<T> b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber<T>>();
 
-        public static NullableDbNumber operator /(NullableDbNumber a, NullableDbNumber b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber>();
+        public static NullableDbNumber<T> operator /(NullableDbNumber<T> a, NullableDbNumber<T> b) => Operatior.Binary(a, "-", b).Create<NullableDbNumber<T>>();
         #endregion
         #region IDbExpression
         SqlGenerator _sqlBuilder;

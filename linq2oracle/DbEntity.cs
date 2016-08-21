@@ -31,7 +31,7 @@ namespace Linq2Oracle
 
         internal SortedList<int, object> ChangedMap => _changedMap;
 
-        protected void BeforeColumnChange([CallerMemberNameAttribute]string columnName = "")
+        protected void BeforeColumnChange([CallerMemberName]string columnName = "")
         {
             if (!IsLoaded)
                 return;
@@ -58,7 +58,7 @@ namespace Linq2Oracle
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        protected void NotifyPropertyChanged([CallerMemberNameAttribute]string propertyName = "")
+        protected void NotifyPropertyChanged([CallerMemberName]string propertyName = "")
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
