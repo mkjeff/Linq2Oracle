@@ -1,8 +1,8 @@
-﻿using Linq2Oracle.Expressions;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using Linq2Oracle.Expressions;
 
 namespace Linq2Oracle
 {

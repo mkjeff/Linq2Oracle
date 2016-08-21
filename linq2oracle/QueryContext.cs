@@ -1,6 +1,3 @@
-using Linq2Oracle.Expressions;
-using Oracle.ManagedDataAccess.Client;
-using Oracle.ManagedDataAccess.Types;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,6 +6,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
+using Linq2Oracle.Expressions;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 
 namespace Linq2Oracle
 {
@@ -384,6 +384,7 @@ namespace Linq2Oracle
         /// <returns></returns>
         public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0) 
             => new QueryContext<C, T, TR>(new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, _genSql, ColumnDefine);
+
         #endregion
         #region SelectMany
         public SelectManyContext<C, T, TResult, _> SelectMany<C2, T2, TResult2, _>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<C, C2, _> resultSelector)

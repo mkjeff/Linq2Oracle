@@ -1,11 +1,11 @@
-﻿using Linq2Oracle.Expressions;
-using Oracle.ManagedDataAccess.Client;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
+using Linq2Oracle.Expressions;
+using Oracle.ManagedDataAccess.Client;
 using static Linq2Oracle.OracleDataReaderHelper;
 
 namespace Linq2Oracle

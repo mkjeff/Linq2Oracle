@@ -1,5 +1,5 @@
-﻿using Oracle.ManagedDataAccess.Client;
-using System;
+﻿using System;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Linq2Oracle.Expressions
 {

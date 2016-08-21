@@ -1,6 +1,4 @@
-using Linq2Oracle.Expressions;
-using Oracle.ManagedDataAccess.Client;
-using Oracle.ManagedDataAccess.Types;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,7 +6,9 @@ using System.Linq;
 using System.Linq.Expressions;
 using System.Runtime.CompilerServices;
 using System.Text;
-using System;
+using Linq2Oracle.Expressions;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 using static Linq2Oracle.Expressions.Function;
 
 namespace Linq2Oracle

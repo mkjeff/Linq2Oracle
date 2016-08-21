@@ -1,5 +1,5 @@
-using Oracle.ManagedDataAccess.Client;
 using System.Collections.Generic;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Linq2Oracle
 {

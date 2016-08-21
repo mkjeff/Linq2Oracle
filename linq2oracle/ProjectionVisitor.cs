@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Linq2Oracle
 {
-    sealed class Projection : System.Linq.Expressions.ExpressionVisitor
+    sealed class Projection : ExpressionVisitor
     {
         static Projection() { }
         static readonly ParameterExpression _DbReader = Expression.Parameter(typeof(OracleDataReader), "reader");
@@ -25,10 +25,8 @@ namespace Linq2Oracle
 #else
         static readonly ExpressionCache<Projection> _Cache = new ExpressionCache<Projection>();
 
-        internal static Projection Create<T, TResult>(Expression<Func<T, TResult>> selector, string file, int line) where T : DbEntity
-        {
-            return _Cache.Get(selector, key => new Projection(Table<T>.Info, key));
-        }
+        internal static Projection Create<T, TResult>(Expression<Func<T, TResult>> selector, string file, int line) where T : DbEntity 
+            => _Cache.Get(selector, key => new Projection(Table<T>.Info, key));
 #endif
         public readonly string SelectSql;
         public readonly Delegate Projector;
@@ -40,35 +38,32 @@ namespace Linq2Oracle
 
         Projection(string fullSelection, Delegate identitySelector)
         {
-            this.IsProjection = false;
-            this.Projector = identitySelector;
-            this.SelectSql = fullSelection;
+            IsProjection = false;
+            Projector = identitySelector;
+            SelectSql = fullSelection;
         }
 
         Projection(Table.Info tableInfo, LambdaExpression selector)
         {
-            this._valueGetters = new Dictionary<string, Expression>();
-            this._selectSqlBuffer = new StringBuilder();
-            this._tableInfo = tableInfo;
-            this.IsProjection = true;
-            this._paramT = selector.Parameters[0];
+            _valueGetters = new Dictionary<string, Expression>();
+            _selectSqlBuffer = new StringBuilder();
+            _tableInfo = tableInfo;
+            IsProjection = true;
+            _paramT = selector.Parameters[0];
             var projector = Expression.Lambda(base.Visit(selector.Body), _DbReader);
-            var lambda = this.IsProjection ? projector : selector;
-            this.Projector = lambda.Compile();
-            this.SelectSql = IsProjection ? _selectSqlBuffer.ToString() : tableInfo.FullSelectionColumnsString;
+            var lambda = IsProjection ? projector : selector;
+            Projector = lambda.Compile();
+            SelectSql = IsProjection ? _selectSqlBuffer.ToString() : tableInfo.FullSelectionColumnsString;
 
-            this._selectSqlBuffer.Length = 0;
-            this._selectSqlBuffer = null;
-            this._valueGetters.Clear();
-            this._valueGetters = null;
-            this._tableInfo = null;
-            this._paramT = null;
+            _selectSqlBuffer.Length = 0;
+            _selectSqlBuffer = null;
+            _valueGetters.Clear();
+            _valueGetters = null;
+            _tableInfo = null;
+            _paramT = null;
         }
 
-        internal static Projection Identity<T>() where T : DbEntity
-        {
-            return new Projection(Table<T>.FullSelectionColumnsString, new Func<T, T>(t => t));
-        }
+        internal static Projection Identity<T>() where T : DbEntity => new Projection(Table<T>.FullSelectionColumnsString, new Func<T, T>(t => t));
 
         protected override Expression VisitMember(MemberExpression m)
         {

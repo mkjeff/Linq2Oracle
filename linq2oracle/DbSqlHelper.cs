@@ -1,10 +1,10 @@
-using Linq2Oracle.Expressions;
-using Oracle.ManagedDataAccess.Client;
 using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
 using System.Text;
+using Linq2Oracle.Expressions;
+using Oracle.ManagedDataAccess.Client;
 
 namespace Linq2Oracle
 {
@@ -25,9 +25,9 @@ namespace Linq2Oracle
             => @this.In(values.ToArray());
 
         public static SqlBoolean In<E, T>(this E @this, T[] values)
-            where E : IDbExpression<T> 
+            where E : IDbExpression<T>
             => new SqlBoolean(sql =>
-                                                    {
+            {
                 if (values.Length == 0)
                 {
                     sql.Append("1=2");
@@ -39,7 +39,6 @@ namespace Linq2Oracle
 
                 sql.Append(@this).Append(" IN (");
 
-                bool isEnum = typeof(T).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
@@ -68,8 +67,6 @@ namespace Linq2Oracle
 
                 sql.Append('(').Append(@this.Item1).Append(',').Append(@this.Item2).Append(") IN (");
 
-                bool t1IsEnum = typeof(T1).IsEnum;
-                bool t2IsEnum = typeof(T2).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
@@ -96,10 +93,10 @@ namespace Linq2Oracle
             where E2 : IDbExpression<T2> 
             => new SqlBoolean(sql =>
                 sql.Append('(')
-                            .Append(@this.Item1).Append(',')
-                            .Append(@this.Item2).Append(") IN (")
-                            .AppendQuery(subquery)
-                            .Append(')'));
+                   .Append(@this.Item1).Append(',')
+                   .Append(@this.Item2).Append(") IN (")
+                   .AppendQuery(subquery)
+                   .Append(')'));
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
         public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, Tuple<T1, T2, T3>[] values)
@@ -120,9 +117,6 @@ namespace Linq2Oracle
                     .Append(@this.Item3)
                 .Append(") IN (");
 
-                bool t1IsEnum = typeof(T1).IsEnum;
-                bool t2IsEnum = typeof(T2).IsEnum;
-                bool t3IsEnum = typeof(T3).IsEnum;
                 string delimiter = string.Empty;
                 foreach (var t in values)
                 {
@@ -149,12 +143,13 @@ namespace Linq2Oracle
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             where E3 : IDbExpression<T3>
-            => new SqlBoolean(sql => sql.Append('(')
-                                                  .Append(@this.Item1).Append(',')
-                                                  .Append(@this.Item2).Append(',')
-                                                  .Append(@this.Item3).Append(") IN (")
-                                                  .AppendQuery(subquery)
-                                                  .Append(')'));
+            => new SqlBoolean(sql =>
+                sql.Append('(')
+                   .Append(@this.Item1).Append(',')
+                   .Append(@this.Item2).Append(',')
+                   .Append(@this.Item3).Append(") IN (")
+                   .AppendQuery(subquery)
+                   .Append(')'));
         #endregion
 
         #region Delete
