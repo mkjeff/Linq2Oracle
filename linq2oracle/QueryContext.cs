@@ -325,40 +325,28 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="keySelector"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TResult> OrderBy(Func<C, IDbExpression> keySelector)
-        {
-            return _OrderBy(keySelector(ColumnDefine));
-        }
+        public QueryContext<C, T, TResult> OrderBy(Func<C, IDbExpression> keySelector) => _OrderBy(keySelector(ColumnDefine));
 
         /// <summary>
         /// SQL ORDER BY DESC
         /// </summary>
         /// <param name="keySelector"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TResult> OrderByDescending(Func<C, IDbExpression> keySelector)
-        {
-            return _OrderBy(keySelector(ColumnDefine), true);
-        }
+        public QueryContext<C, T, TResult> OrderByDescending(Func<C, IDbExpression> keySelector) => _OrderBy(keySelector(ColumnDefine), true);
 
         /// <summary>
         /// SQL ORDER BY
         /// </summary>
         /// <param name="keySelector"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TResult> ThenBy(Func<C, IDbExpression> keySelector)
-        {
-            return _OrderBy(keySelector(ColumnDefine));
-        }
+        public QueryContext<C, T, TResult> ThenBy(Func<C, IDbExpression> keySelector) => _OrderBy(keySelector(ColumnDefine));
 
         /// <summary>
         /// SQL ORDER BY DESC
         /// </summary>
         /// <param name="keySelector"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TResult> ThenByDescending(Func<C, IDbExpression> keySelector)
-        {
-            return _OrderBy(keySelector(ColumnDefine), true);
-        }
+        public QueryContext<C, T, TResult> ThenByDescending(Func<C, IDbExpression> keySelector) => _OrderBy(keySelector(ColumnDefine), true);
 
         QueryContext<C, T, TResult> _OrderBy(IDbExpression expr, bool desc = false)
         {
@@ -394,10 +382,8 @@ namespace Linq2Oracle
         /// <param name="file"></param>
         /// <param name="line"></param>
         /// <returns></returns>
-        public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0)
-        {
-            return new QueryContext<C, T, TR>(new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, _genSql, ColumnDefine);
-        }
+        public QueryContext<C, T, TR> Select<TR>(Expression<Func<T, TR>> selector, [CallerFilePath]string file = "", [CallerLineNumber]int line = 0) 
+            => new QueryContext<C, T, TR>(new Lazy<Projection>(() => Projection.Create(selector, file, line)), _closure, _genSql, ColumnDefine);
         #endregion
         #region SelectMany
         public SelectManyContext<C, T, TResult, _> SelectMany<C2, T2, TResult2, _>(Func<C, QueryContext<C2, T2, TResult2>> collectionSelector, Func<C, C2, _> resultSelector)
@@ -469,21 +455,25 @@ namespace Linq2Oracle
         {
             var thisC = _closure; thisC.Orderby = EmptyList<SortDescription>.Instance;
             var otherC = other._closure; otherC.Orderby = EmptyList<SortDescription>.Instance;
-            return new QueryContext<C, T, TResult>(projector: _projection, closure: new Closure
-            {
-                Filters = EmptyList<SqlBoolean>.Instance,
-                Orderby = EmptyList<SortDescription>.Instance,
-                Tables = EmptyList<IQueryContext>.Instance,
-            }, genSql: (sql, select, c) =>
-            {
-                sql.Append(select).Append(" FROM (");
-                this._genSql(sql, "SELECT t0.*", thisC);
-                sql.Append(op);
-                other._genSql(sql, "SELECT t0.*", otherC);
-                sql.Append(") t0")
-                    .AppendWhere(c.Filters)
-                    .AppendOrder(c.Orderby);
-            }, columnDefine: ColumnDefine);
+            return new QueryContext<C, T, TResult>(
+                projector: _projection,
+                closure: new Closure
+                {
+                    Filters = EmptyList<SqlBoolean>.Instance,
+                    Orderby = EmptyList<SortDescription>.Instance,
+                    Tables = EmptyList<IQueryContext>.Instance,
+                },
+                genSql: (sql, select, c) =>
+                {
+                    sql.Append(select).Append(" FROM (");
+                    this._genSql(sql, "SELECT t0.*", thisC);
+                    sql.Append(op);
+                    other._genSql(sql, "SELECT t0.*", otherC);
+                    sql.Append(") t0")
+                        .AppendWhere(c.Filters)
+                        .AppendOrder(c.Orderby);
+                },
+                columnDefine: ColumnDefine);
         }
 
         /// <summary>
@@ -525,10 +515,10 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Expressions.DbString Max(Func<C, DbString> selector)
+        public DbString Max(Func<C, DbString> selector)
         {
             var exprGen = Function.Call("MAX", selector(ColumnDefine));
-            return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
+            return new DbString(() => (string)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
 
@@ -537,10 +527,10 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Expressions.DbString Min(Func<C, DbString> selector)
+        public DbString Min(Func<C, DbString> selector)
         {
             var exprGen = Function.Call("MIN", selector(ColumnDefine));
-            return new Expressions.DbString(() => (string)_AggregateFunction(exprGen),
+            return new DbString(() => (string)_AggregateFunction(exprGen),
                 sqlBuilder: _AggregateFunctionExpression(exprGen));
         }
         #endregion
@@ -718,8 +708,7 @@ namespace Linq2Oracle
         }
 
         Action<SqlContext> _AggregateFunctionExpression(Action<SqlContext> exprGen)
-        {
-            return sql =>
+            => sql =>
             {
                 sql.Append('(');
                 var cc = _closure;
@@ -728,7 +717,7 @@ namespace Linq2Oracle
                 _genSql(sql, string.Empty, cc);
                 sql.Append(')');
             };
-        }
+
         #endregion
         #region Count / LongCount
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
@@ -794,39 +783,27 @@ namespace Linq2Oracle
         /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public DbNumber Count()
-        {
-            return _Count();
-        }
+        public DbNumber Count() => _Count();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public DbNumber Count(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).Count();
-        }
+        public DbNumber Count(Func<C, SqlBoolean> predicate) => this.Where(predicate).Count();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <returns></returns>
-        public DbNumber LongCount()
-        {
-            return _Count();
-        }
+        public DbNumber LongCount() => _Count();
 
         /// <summary>
         /// SQL COUNT as int
         /// </summary>
         /// <param name="predicate"></param>
         /// <returns></returns>
-        public DbNumber LongCount(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).LongCount();
-        }
+        public DbNumber LongCount(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCount();
         #endregion
         #region Any / IsEmpty
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]

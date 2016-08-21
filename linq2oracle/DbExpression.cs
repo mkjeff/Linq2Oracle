@@ -608,7 +608,7 @@ namespace Linq2Oracle.Expressions
     }
     #endregion
 
-    sealed class ColumnExpression : IDbExpression
+    struct ColumnExpression : IDbExpression
     {
         readonly SqlGenerator _sqlBuilder;
 
@@ -617,9 +617,8 @@ namespace Linq2Oracle.Expressions
             _sqlBuilder = sql => sql.Append(sql.GetAlias(table)).Append(".").Append(columnName);
         }
 
-        #region IDbExpression
         SqlGenerator IDbExpression.Build { get { return _sqlBuilder; } set { } }
+
         bool IDbExpression.IsNullExpression => false;
-        #endregion
     }
 }
