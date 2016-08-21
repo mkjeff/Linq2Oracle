@@ -3,7 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Odp.net LINQ Provider", "Odp.net LINQ Provider.csproj", "{908CD81D-A4BD-4008-92F2-48DECC6CF4E0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Odp.net LINQ Provider", "linq2oracle\Odp.net LINQ Provider.csproj", "{908CD81D-A4BD-4008-92F2-48DECC6CF4E0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "test\Test.csproj", "{14742153-2E8A-4BA7-BB6A-08630C1BEB30}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,6 +26,16 @@ Global
 		{908CD81D-A4BD-4008-92F2-48DECC6CF4E0}.NoCache|Any CPU.Build.0 = NoCache|Any CPU
 		{908CD81D-A4BD-4008-92F2-48DECC6CF4E0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{908CD81D-A4BD-4008-92F2-48DECC6CF4E0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.CacheByExpression|Any CPU.ActiveCfg = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.CacheByExpression|Any CPU.Build.0 = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.CacheByLocation|Any CPU.ActiveCfg = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.CacheByLocation|Any CPU.Build.0 = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.NoCache|Any CPU.ActiveCfg = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.NoCache|Any CPU.Build.0 = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
