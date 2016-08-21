@@ -14,8 +14,7 @@ namespace Linq2Oracle
     public class OracleDB
     {
         readonly OracleConnection _conn;
-        TextWriter _logger;
-        public TextWriter Log { get { return _logger; } set { _logger = value; } }
+        public TextWriter Log { get; set; }
 
         /// <summary>
         /// Create Database Access Object
@@ -27,7 +26,7 @@ namespace Linq2Oracle
             _conn = connection;
             if (logger == TextWriter.Null)
                 logger = null;
-            _logger = logger;
+            Log = logger;
         }
 
         #region Private Methods
@@ -41,25 +40,26 @@ namespace Linq2Oracle
             //cmd.Transaction = _trx;
             cmd.Connection = _conn;
 
-            if (_logger != null)
+            var logger = Log;
+            if (logger != null)
             {
                 #region Logging SQL TEXT
-                _logger.Write(cmd.CommandText);
-                _logger.WriteLine(";");
+                logger.Write(cmd.CommandText);
+                logger.WriteLine(";");
 
-                for (int i = 0, len = cmd.Parameters.Count; i < len; i++)
+                for (int i = 0; i < cmd.Parameters.Count; i++)
                 {
                     var p = cmd.Parameters[i];
-                    _logger.Write("\t--");
-                    _logger.Write(p.ParameterName);
-                    _logger.Write(" = ");
+                    logger.Write("\t--");
+                    logger.Write(p.ParameterName);
+                    logger.Write(" = ");
                     if (p.Value != null)
                     {
-                        _logger.Write(p.OracleDbType);
-                        _logger.Write('[');
+                        logger.Write(p.OracleDbType);
+                        logger.Write('[');
                         if (p.Value is byte[])
                         {
-                            _logger.Write("Binary Data");
+                            logger.Write("Binary Data");
                         }
                         else if (p.Value is Array)
                         {
@@ -67,16 +67,16 @@ namespace Linq2Oracle
                             var count = values.Length;
                             for (int v = 0; v < count - 1; v++)
                             {
-                                _logger.Write(values[v]);
-                                _logger.Write(", ");
+                                logger.Write(values[v]);
+                                logger.Write(", ");
                             }
-                            _logger.Write(values[count - 1]);
+                            logger.Write(values[count - 1]);
                         }
                         else
-                            _logger.Write(p.Value);
-                        _logger.Write("]");
+                            logger.Write(p.Value);
+                        logger.Write("]");
                     }
-                    _logger.WriteLine();
+                    logger.WriteLine();
                 }
                 #endregion
             }

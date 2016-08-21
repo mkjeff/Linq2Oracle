@@ -17,34 +17,26 @@ namespace Linq2Oracle
             static CacheKey() { }
             static readonly IComparer<Expression> comparer = new ExpressionComparer();
 
+            readonly Lazy<int> _hashCode;
+
             public Expression Expression { get; }
 
             public CacheKey(Expression exp)
             {
-                this.Expression = exp;
+                Expression = exp;
+                _hashCode = new Lazy<int>(() => new ExpressionHasher().Hash(Expression));
             }
 
-            int _hashCode;
-            bool _hashCodeInitialized = false;
 
-            public override int GetHashCode()
-            {
-                if (!this._hashCodeInitialized)
-                {
-                    this._hashCode = new ExpressionHasher().Hash(this.Expression);
-                    this._hashCodeInitialized = true;
-                }
-
-                return this._hashCode;
-            }
+            public override int GetHashCode() => _hashCode.Value;
 
             public override bool Equals(object obj)
             {
                 if (obj == null) return false;
-                if (obj.GetType() != this.GetType()) return false;
+                if (obj.GetType() != GetType()) return false;
 
                 CacheKey other = (CacheKey)obj;
-                return comparer.Compare(this.Expression, other.Expression) == 0;
+                return comparer.Compare(Expression, other.Expression) == 0;
             }
         }
     }

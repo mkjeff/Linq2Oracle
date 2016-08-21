@@ -78,6 +78,7 @@ namespace Linq2Oracle
 
             return new SelectManyContext<C, T, TResult, _>(OriginalSource, _transparentId, _projection, _genSql, newC, ColumnDefine);
         }
+
         public SelectManyContext<C, T, TResult, _> OrderBy(Func<_, IDbExpression> keySelector) 
             => OrderBy(keySelector(_transparentId), false);
 

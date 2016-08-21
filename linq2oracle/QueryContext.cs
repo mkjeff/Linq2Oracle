@@ -831,8 +831,7 @@ namespace Linq2Oracle
         #region Any / IsEmpty
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
         public BooleanContext Any()
-        {
-            return new BooleanContext(
+            => new BooleanContext(
                 valueProvider: () =>
                 {
                     var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
@@ -854,17 +853,10 @@ namespace Linq2Oracle
                     _genSql(sql, "SELECT 1", newC);
                     sql.Append(')');
                 }));
-        }
 
-        public BooleanContext Any(Func<C, SqlBoolean> predicate)
-        {
-            return this.Where(predicate).Any();
-        }
+        public BooleanContext Any(Func<C, SqlBoolean> predicate) => this.Where(predicate).Any();
 
-        public BooleanContext IsEmpty()
-        {
-            return !Any();
-        }
+        public BooleanContext IsEmpty() => !Any();
         #endregion
         #region All
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Security", "CA2100:Review SQL queries for security vulnerabilities")]
@@ -907,13 +899,11 @@ namespace Linq2Oracle
             return new QueryContext<C, T, TResult>(_projection, newClosure, _genSql, ColumnDefine);
         }
         #endregion
-        #region IEnumerable<TResult> 成員
+
         IEnumerator<TResult> IEnumerable<TResult>.GetEnumerator() => _data.GetEnumerator();
-        #endregion
-        #region IEnumerable 成員
+
         IEnumerator IEnumerable.GetEnumerator() => ((IEnumerable<TResult>)this).GetEnumerator();
-        #endregion
-        #region IQueryContext 成員
+
         public IQueryContext OriginalSource => _closure.OriginalSource;
 
         void IQueryContext.GenInnerSql(SqlContext sql, string selection)
@@ -937,10 +927,9 @@ namespace Linq2Oracle
             sql.AppendForUpdate<T, TResult>(_closure.ForUpdate);
         }
 
-        public OracleDB Db { get { return _closure.Db; } }
+        public OracleDB Db => _closure.Db;
 
-        public string TableName { get { return Table<T>.TableName; } }
-        #endregion
+        public string TableName => Table<T>.TableName;
     }
 
     /// <summary>
@@ -952,7 +941,6 @@ namespace Linq2Oracle
         where T : DbEntity
         where C : class, new()
     {
-        #region Static Members
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         static readonly Func<IQueryContext, C> constructor;
 
@@ -975,23 +963,23 @@ namespace Linq2Oracle
             //          Column1 = SqlExpressionBuilder.Create<Column1Type>((SqlContext sql) => sql.Append(sql.GetAlias(query)).Append('.').Append(column1.QuotesColumnName),
             //          Column2 = ...
             //      };
-            var query = LambdaExpression.Parameter(typeof(IQueryContext), "query");
-            var lambda = LambdaExpression.Lambda<Func<IQueryContext, C>>(
-                body: LambdaExpression.MemberInit(
-                    newExpression: LambdaExpression.New(typeof(C)),
+            var query = Expression.Parameter(typeof(IQueryContext), "query");
+            var lambda = Expression.Lambda<Func<IQueryContext, C>>(
+                body: Expression.MemberInit(
+                    newExpression: Expression.New(typeof(C)),
                     bindings: from prop in typeof(C).GetProperties()
                               where typeof(IDbExpression).IsAssignableFrom(prop.PropertyType)
                               where Table<T>.DbColumnMap.ContainsKey(prop.Name)
-                              let sql = LambdaExpression.Parameter(typeof(SqlContext), "sql")
+                              let sql = Expression.Parameter(typeof(SqlContext), "sql")
                               select (MemberBinding)Expression.Bind(
                                     member: prop,
                                     expression: Expression.Call(
                                         dbExprCreator.MakeGenericMethod(prop.PropertyType),
-                                        LambdaExpression.Lambda<Action<SqlContext>>(
-                                            body: LambdaExpression.Call(LambdaExpression.Call(LambdaExpression.Call(
-                                                   sql, sqlAppend, LambdaExpression.Call(sql, sqlGetAlias, query)),
-                                                        sqlAppend, LambdaExpression.Constant(".")),
-                                                        sqlAppend, LambdaExpression.Constant(Table<T>.DbColumnMap[prop.Name].QuotesColumnName)),
+                                        Expression.Lambda<Action<SqlContext>>(
+                                            body: Expression.Call(Expression.Call(Expression.Call(
+                                                   sql, sqlAppend, Expression.Call(sql, sqlGetAlias, query)),
+                                                        sqlAppend, Expression.Constant(".")),
+                                                        sqlAppend, Expression.Constant(Table<T>.DbColumnMap[prop.Name].QuotesColumnName)),
                                             parameters: sql
                                         )
                                     )
@@ -1002,25 +990,21 @@ namespace Linq2Oracle
             constructor = lambda.Compile();
         }
 
-        static public C Create(IQueryContext query)
-        {
-            //var type = typeof(C);
-            //var ColumnsDefine = (C)Activator.CreateInstance(type);
-            //foreach (var prop in type.GetProperties())
-            //{
-            //    DbColumn c;
-            //    if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) ||
-            //        !typeof(IDbExpression).IsAssignableFrom(prop.PropertyType))
-            //        continue;
+        //var type = typeof(C);
+        //var ColumnsDefine = (C)Activator.CreateInstance(type);
+        //foreach (var prop in type.GetProperties())
+        //{
+        //    DbColumn c;
+        //    if (!Table<T>.DbColumnMap.TryGetValue(prop.Name, out c) ||
+        //        !typeof(IDbExpression).IsAssignableFrom(prop.PropertyType))
+        //        continue;
 
-            //    var value = (IDbExpression)Activator.CreateInstance(prop.PropertyType);
-            //    Action<SqlContext> a = sql => sql.Append(sql.GetAlias(query)).Append('.').Append(c.QuotesColumnName);
-            //    prop.SetValue(ColumnsDefine, value, null);
-            //}
-            //return ColumnsDefine;
-            return constructor(query);
-        }
-        #endregion
+        //    var value = (IDbExpression)Activator.CreateInstance(prop.PropertyType);
+        //    Action<SqlContext> a = sql => sql.Append(sql.GetAlias(query)).Append('.').Append(c.QuotesColumnName);
+        //    prop.SetValue(ColumnsDefine, value, null);
+        //}
+        //return ColumnsDefine;
+        static public C Create(IQueryContext query) => constructor(query);
 
         public EntityTable(OracleDB db)
             : base(identityProjection, new Closure

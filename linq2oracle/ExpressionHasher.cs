@@ -2,121 +2,121 @@
 
 namespace Linq2Oracle
 {
-    sealed class ExpressionHasher : System.Linq.Expressions.ExpressionVisitor
+    sealed class ExpressionHasher : ExpressionVisitor
     {
         static ExpressionHasher() { }
 
         public int Hash(Expression exp)
         {
-            this.HashCode = 0;
-            this.Visit(exp);
-            return this.HashCode;
+            HashCode = 0;
+            Visit(exp);
+            return HashCode;
         }
 
         public int HashCode { get; private set; }
 
         ExpressionHasher Hash(int value)
         {
-            unchecked { this.HashCode += value; }
+            unchecked { HashCode += value; }
             return this;
         }
 
         ExpressionHasher Hash(bool value)
         {
-            unchecked { this.HashCode += value ? 1 : 0; }
+            unchecked { HashCode += value ? 1 : 0; }
             return this;
         }
 
-        private static readonly object s_nullValue = new object();
+        static readonly object s_nullValue = new object();
 
         ExpressionHasher Hash(object value)
         {
             value = value ?? s_nullValue;
-            unchecked { this.HashCode += value.GetHashCode(); }
+            unchecked { HashCode += value.GetHashCode(); }
             return this;
         }
 
-        public override Expression Visit(Expression exp)
+        public override Expression Visit(Expression node)
         {
-            if (exp == null) return exp;
+            if (node == null) return node;
 
-            this.Hash((int)exp.NodeType).Hash(exp.Type);
-            return base.Visit(exp);
+            Hash((int)node.NodeType).Hash(node.Type);
+            return base.Visit(node);
         }
 
-        protected override Expression VisitBinary(BinaryExpression b)
+        protected override Expression VisitBinary(BinaryExpression node)
         {
-            this.Hash(b.IsLifted).Hash(b.IsLiftedToNull).Hash(b.Method);
-            return base.VisitBinary(b);
+            Hash(node.IsLifted).Hash(node.IsLiftedToNull).Hash(node.Method);
+            return base.VisitBinary(node);
         }
 
-        protected override MemberBinding VisitMemberBinding(MemberBinding binding)
+        protected override MemberBinding VisitMemberBinding(MemberBinding node)
         {
-            this.Hash(binding.BindingType).Hash(binding.Member);
-            return base.VisitMemberBinding(binding);
+            Hash(node.BindingType).Hash(node.Member);
+            return base.VisitMemberBinding(node);
         }
 
-        protected override Expression VisitConstant(ConstantExpression c)
+        protected override Expression VisitConstant(ConstantExpression node)
         {
-            this.Hash(c.Value);
-            return base.VisitConstant(c);
+            Hash(node.Value);
+            return base.VisitConstant(node);
         }
 
-        protected override ElementInit VisitElementInit(ElementInit initializer)
+        protected override ElementInit VisitElementInit(ElementInit node)
         {
-            this.Hash(initializer.AddMethod);
-            return base.VisitElementInit(initializer);
+            Hash(node.AddMethod);
+            return base.VisitElementInit(node);
         }
 
-        protected override Expression VisitLambda<T>(Expression<T> lambda)
+        protected override Expression VisitLambda<T>(Expression<T> node)
         {
-            foreach (var p in lambda.Parameters)
+            foreach (var p in node.Parameters)
             {
-                this.VisitParameter(p);
+                VisitParameter(p);
             }
 
-            return base.VisitLambda(lambda);
+            return base.VisitLambda(node);
         }
 
-        protected override Expression VisitMember(MemberExpression m)
+        protected override Expression VisitMember(MemberExpression node)
         {
-            this.Hash(m.Member);
-            return base.VisitMember(m);
+            Hash(node.Member);
+            return base.VisitMember(node);
         }
 
-        protected override Expression VisitMethodCall(MethodCallExpression m)
+        protected override Expression VisitMethodCall(MethodCallExpression node)
         {
-            this.Hash(m.Method);
-            return base.VisitMethodCall(m);
+            Hash(node.Method);
+            return base.VisitMethodCall(node);
         }
 
-        protected override Expression VisitNew(NewExpression nex)
+        protected override Expression VisitNew(NewExpression node)
         {
-            this.Hash(nex.Constructor);
-            if (nex.Members != null)
+            Hash(node.Constructor);
+            if (node.Members != null)
             {
-                foreach (var m in nex.Members) this.Hash(m);
+                foreach (var m in node.Members) Hash(m);
             }
 
-            return base.VisitNew(nex);
+            return base.VisitNew(node);
         }
 
-        protected override Expression VisitParameter(ParameterExpression p)
+        protected override Expression VisitParameter(ParameterExpression node)
         {
-            this.Hash(p.Name);
-            return base.VisitParameter(p);
+            Hash(node.Name);
+            return base.VisitParameter(node);
         }
 
-        protected override Expression VisitTypeBinary(TypeBinaryExpression b)
+        protected override Expression VisitTypeBinary(TypeBinaryExpression node)
         {
-            this.Hash(b.TypeOperand);
-            return base.VisitTypeBinary(b);
+            Hash(node.TypeOperand);
+            return base.VisitTypeBinary(node);
         }
 
-        protected override Expression VisitUnary(UnaryExpression u)
+        protected override Expression VisitUnary(UnaryExpression node)
         {
-            this.Hash(u.IsLifted).Hash(u.IsLiftedToNull).Hash(u.Method);
-            return base.VisitUnary(u);
+            Hash(node.IsLifted).Hash(node.IsLiftedToNull).Hash(node.Method);
+            return base.VisitUnary(node);
         }
     }
 }

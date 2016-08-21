@@ -99,11 +99,21 @@ namespace Linq2Oracle
             return this;
         }
 
-        internal SqlContext AppendParam(object value)
+        internal SqlContext AppendParam<T>(T value)
         {
             var paramName = param.Count.ToString();
-            param.Add(paramName, value);
-            sql.Append(':').Append(paramName);
+            if (value == null)
+            {
+                sql.Append("NULL");
+            }
+            else
+            {
+                if (typeof(T).IsEnum)
+                    param.Add(paramName, OracleDbType.Varchar2, value, ParameterDirection.Input);
+                else
+                    param.Add(paramName, value);
+                sql.Append(':').Append(paramName);
+            }
             return this;
         }
 
@@ -159,10 +169,7 @@ namespace Linq2Oracle
                 string delimiter = string.Empty;
                 foreach (var order in orders)
                 {
-                    sql.Append(delimiter);
-                    this.Append(order.Expression);
-                    if (order.Descending)
-                        sql.Append(" DESC");
+                    Append(delimiter).Append(order.Expression).Append(order.Descending? " DESC":string.Empty);
                     delimiter = ", ";
                 }
             }

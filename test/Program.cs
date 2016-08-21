@@ -25,11 +25,12 @@ namespace NewNew
                     from a in db.N_USER
                     where a.AD_FLAG == Flag.Y
                     where a.AGE >= 18
+                    group a by a.DEPT_CODE into g
+                    where g.Average(a=>a.AGE) > 30
                     select new
                     {
-                        a.AGE,
-                        a.USER_ID,
-                        a.CREATE_DATE
+                        g.Key,
+                        g,
                     };
 
                 var count = query.Count();

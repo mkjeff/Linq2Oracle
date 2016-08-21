@@ -88,40 +88,39 @@ namespace Linq2Oracle
         /// <param name="isNullable"></param>
         /// <returns>(OracleDataReader,index) => dbValue</returns>
         internal static MethodInfo GetValueGetMethod(Type clrType, OracleDbType dbType, bool isNullable)
-        {
-            return _GetValueMethodMap.GetOrAdd(new DbTypeKey(isNullable, clrType, dbType), key =>
-            {
-                if (clrType == typeof(char)) return GetOraChar;
-                if (clrType == typeof(string)) return GetOraString;
-                if (clrType == typeof(byte[])) return GetBinary;
-
-                if (isNullable)
+            => _GetValueMethodMap.GetOrAdd(new DbTypeKey(isNullable, clrType, dbType),
+                key =>
                 {
-                    if (dbType == OracleDbType.Date) return GetNullableDate;
-                    if (dbType == OracleDbType.TimeStamp) return GetNullableTimeStamp;
+                    if (clrType == typeof(char)) return GetOraChar;
+                    if (clrType == typeof(string)) return GetOraString;
+                    if (clrType == typeof(byte[])) return GetBinary;
 
-                    var nullableType = clrType.GetGenericArguments()[0];
-                    if (nullableType.IsEnum) return GetNullableEnum_T.MakeGenericMethod(nullableType);
-                    if (nullableType == typeof(char)) return GetNullableChar;
-                    if (nullableType == typeof(short)) return GetNullableInt16;
-                    if (nullableType == typeof(int)) return GetNullableInt32;
-                    if (nullableType == typeof(long)) return GetNullableInt64;
-                    if (nullableType == typeof(float)) return GetNullableFloat;
-                    if (nullableType == typeof(double)) return GetNullableDouble;
-                }
+                    if (isNullable)
+                    {
+                        if (dbType == OracleDbType.Date) return GetNullableDate;
+                        if (dbType == OracleDbType.TimeStamp) return GetNullableTimeStamp;
 
-                if (dbType == OracleDbType.Date) return GetOraDate;
-                if (dbType == OracleDbType.TimeStamp) return GetOraTimeStamp;
-                if (clrType.IsEnum) return GetEnum_T.MakeGenericMethod(clrType);
-                if (clrType == typeof(short)) return GetInt16;
-                if (clrType == typeof(int)) return GetInt32;
-                if (clrType == typeof(long)) return GetInt64;
-                if (clrType == typeof(float)) return GetFloat;
-                if (clrType == typeof(double)) return GetDouble;
+                        var nullableType = clrType.GetGenericArguments()[0];
+                        if (nullableType.IsEnum) return GetNullableEnum_T.MakeGenericMethod(nullableType);
+                        if (nullableType == typeof(char)) return GetNullableChar;
+                        if (nullableType == typeof(short)) return GetNullableInt16;
+                        if (nullableType == typeof(int)) return GetNullableInt32;
+                        if (nullableType == typeof(long)) return GetNullableInt64;
+                        if (nullableType == typeof(float)) return GetNullableFloat;
+                        if (nullableType == typeof(double)) return GetNullableDouble;
+                    }
 
-                return GetUnknow_T.MakeGenericMethod(clrType);
-            });
-        }
+                    if (dbType == OracleDbType.Date) return GetOraDate;
+                    if (dbType == OracleDbType.TimeStamp) return GetOraTimeStamp;
+                    if (clrType.IsEnum) return GetEnum_T.MakeGenericMethod(clrType);
+                    if (clrType == typeof(short)) return GetInt16;
+                    if (clrType == typeof(int)) return GetInt32;
+                    if (clrType == typeof(long)) return GetInt64;
+                    if (clrType == typeof(float)) return GetFloat;
+                    if (clrType == typeof(double)) return GetDouble;
+
+                    return GetUnknow_T.MakeGenericMethod(clrType);
+                });
 
         static MethodInfo GetInternalMethod(this Type type, string method) => type.GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic);
 

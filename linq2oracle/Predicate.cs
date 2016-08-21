@@ -6,7 +6,7 @@ namespace Linq2Oracle.Expressions
     {
         readonly Action<SqlContext> _builder;
 
-        internal bool IsVaild { get { return _builder != null; } }
+        internal bool IsVaild => _builder != null;
 
         internal SqlBoolean(Action<SqlContext> sqlBuilder)
         {
@@ -15,8 +15,7 @@ namespace Linq2Oracle.Expressions
 
         internal void Build(SqlContext sql)
         {
-            if (_builder != null)
-                _builder(sql);
+            _builder?.Invoke(sql);
         }
 
         public static SqlBoolean operator |(SqlBoolean x, SqlBoolean y)
@@ -41,25 +40,16 @@ namespace Linq2Oracle.Expressions
             return default(SqlBoolean);
         }
 
-        public static SqlBoolean operator !(SqlBoolean x)
-        {
-            if (x.IsVaild) return new SqlBoolean(sql => sql.Append("NOT (").Append(x).Append(")"));
-            return default(SqlBoolean);
-        }
+        public static SqlBoolean operator !(SqlBoolean x) 
+            => x.IsVaild ? new SqlBoolean(sql => sql.Append("NOT (").Append(x).Append(")")) : default(SqlBoolean);
 
-        public static bool operator false(SqlBoolean x)
-        {
-            // Used by operator && (7.11.2)
-            // x && y --> T.false(x) ? x : T.&(x,y)
-            return !x.IsVaild;
-        }
+        // Used by operator && (7.11.2)
+        // x && y --> T.false(x) ? x : T.&(x,y)
+        public static bool operator false(SqlBoolean x) => !x.IsVaild;
 
-        public static bool operator true(SqlBoolean x)
-        {
-            // Used by operator || (7.11.2)
-            // x || y --> T.true(x) ? x : T.|(x,y)
-            return false;
-        }
+        // Used by operator || (7.11.2)
+        // x || y --> T.true(x) ? x : T.|(x,y)
+        public static bool operator true(SqlBoolean x) => false;
     }
 
     public struct BooleanContext
@@ -73,19 +63,10 @@ namespace Linq2Oracle.Expressions
             _predicate = predicate;
         }
 
-        public static BooleanContext operator !(BooleanContext x)
-        {
-            return new BooleanContext(() => !x._valueProvider(), !x._predicate);
-        }
+        public static BooleanContext operator !(BooleanContext x) => new BooleanContext(() => !x._valueProvider(), !x._predicate);
 
-        public static implicit operator bool(BooleanContext @this)
-        {
-            return @this._valueProvider();
-        }
+        public static implicit operator bool(BooleanContext @this) => @this._valueProvider();
 
-        public static implicit operator SqlBoolean(BooleanContext @this)
-        {
-            return @this._predicate;
-        }
+        public static implicit operator SqlBoolean(BooleanContext @this) => @this._predicate;
     }
 }
