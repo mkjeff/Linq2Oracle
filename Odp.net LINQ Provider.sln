@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Odp.net LINQ Provider", "li
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "test\Test.csproj", "{14742153-2E8A-4BA7-BB6A-08630C1BEB30}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LinqPadDriver", "LinqpadDriver\LinqPadDriver.csproj", "{75DD2200-514A-4E95-BFA2-A7300CC6F295}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		CacheByExpression|Any CPU = CacheByExpression|Any CPU
@@ -36,6 +38,16 @@ Global
 		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.NoCache|Any CPU.Build.0 = Release|Any CPU
 		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{14742153-2E8A-4BA7-BB6A-08630C1BEB30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.CacheByExpression|Any CPU.ActiveCfg = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.CacheByExpression|Any CPU.Build.0 = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.CacheByLocation|Any CPU.ActiveCfg = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.CacheByLocation|Any CPU.Build.0 = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.NoCache|Any CPU.ActiveCfg = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.NoCache|Any CPU.Build.0 = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{75DD2200-514A-4E95-BFA2-A7300CC6F295}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
