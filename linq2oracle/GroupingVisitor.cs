@@ -42,7 +42,7 @@ namespace Linq2Oracle
 
         internal static GroupingAggregate Create<T, TKey, TResult>(GroupingKeySelector keySelector, Expression<Func<IGroupingAggregateContext<T, TKey>, TResult>> resultSelector) 
             where T : DbEntity 
-            => _Cache.Get(resultSelector, key => new GroupingAggregate(Table<T>.Info, keySelector, key));
+            => _Cache.Get(resultSelector, key => new GroupingAggregate(Table.GetTableInfo(typeof(T)), keySelector, key));
 
         GroupingAggregate(Table.Info tableInfo, GroupingKeySelector keySelector, LambdaExpression valueSelector)
         {
@@ -281,7 +281,7 @@ namespace Linq2Oracle
         internal DbColumn GetColumn(PropertyInfo property) => _memberMap[property];
 
         internal static GroupingKeySelector Create<T, TKey>(Expression<Func<T, TKey>> keySelector) where T : DbEntity 
-            => _Cache.Get(keySelector, key => new GroupingKeySelector(Table<T>.Info, key));
+            => _Cache.Get(keySelector, key => new GroupingKeySelector(Table.GetTableInfo(typeof(T)), key));
 
         internal SqlBoolean GetGroupKeyPredicate<TKey>(TKey groupKey)
         {

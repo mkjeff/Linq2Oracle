@@ -47,7 +47,7 @@ namespace Linq2Oracle
         static Func<object, object> GetPropertyGetter<T, TProperty>(PropertyInfo pi)
         {
             var getter = (Func<T, TProperty>)Delegate.CreateDelegate(typeof(Func<T, TProperty>), pi.GetGetMethod());
-            return @this => (object)getter((T)@this);
+            return @this => getter((T)@this);
         }
     }
 
@@ -178,7 +178,7 @@ namespace Linq2Oracle
         internal static string DeleteWithPK => Info.DeleteWithPK;
         internal static string InsertOrUpdateSql => Info.InsertOrUpdateSql;
 
-        internal static readonly Table.Info Info = Table.GetTableInfo(typeof(T));
+        static readonly Table.Info Info = Table.GetTableInfo(typeof(T));
         static Table() { }
     }
 
@@ -206,7 +206,7 @@ namespace Linq2Oracle
             var expr = Expression.Lambda<Func<OracleDataReader, T>>(
                 body: Expression.MemberInit(
                     newExpression: Expression.New(typeof(T)),
-                    bindings: from c in Table<T>.Info.DbColumns
+                    bindings: from c in Table<T>.DbColumns
                               select (MemberBinding)Expression.Bind(
                                  member: c.PropertyInfo,
                                  expression: Expression.Call(

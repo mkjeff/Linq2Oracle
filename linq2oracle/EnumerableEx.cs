@@ -56,18 +56,14 @@ namespace Linq2Oracle
         }
 
         public static IEnumerable<TSource> Concat<TSource>(IEnumerable<TSource> sources, TSource element) 
-            => EnumerableEx.Concat(sources, EnumerableEx.Return(element));
+            => Concat(sources, Return(element));
 
-        static IEnumerable<TSource> Concat_<TSource>(this IEnumerable<IEnumerable<TSource>> sources)
-        {
-            foreach (var source in sources)
-                foreach (var item in source)
-                    yield return item;
-        }
+        static IEnumerable<TSource> Concat_<TSource>(this IEnumerable<IEnumerable<TSource>> sources) 
+            => sources.SelectMany(a => a);
     }
 
     static class EmptyList<T>
     {
-        public static readonly IReadOnlyList<T> Instance = new List<T>();
+        public static readonly IReadOnlyList<T> Instance = new List<T>(0);
     }
 }

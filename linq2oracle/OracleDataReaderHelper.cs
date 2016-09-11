@@ -22,12 +22,8 @@ namespace Linq2Oracle
 
             public bool Equals(DbTypeKey o) => ClrType.Equals(o.ClrType) && DbType == o.DbType;
 
-            public override bool Equals(object obj)
-            {
-                if (obj is DbTypeKey)
-                    return Equals((DbTypeKey)obj);
-                return false;
-            }
+            public override bool Equals(object obj) 
+                => obj is DbTypeKey && Equals((DbTypeKey)obj);
             public override int GetHashCode() => ClrType.GetHashCode() ^ DbType.GetHashCode();
         }
 
@@ -91,16 +87,18 @@ namespace Linq2Oracle
             => _GetValueMethodMap.GetOrAdd(new DbTypeKey(isNullable, clrType, dbType),
                 key =>
                 {
-                    if (clrType == typeof(char)) return GetOraChar;
-                    if (clrType == typeof(string)) return GetOraString;
-                    if (clrType == typeof(byte[])) return GetBinary;
+                    var type = key.ClrType;
+                    if (type == typeof(char)) return GetOraChar;
+                    if (type == typeof(string)) return GetOraString;
+                    if (type == typeof(byte[])) return GetBinary;
 
-                    if (isNullable)
+                    var columnType = key.DbType;
+                    if (key.IsNullable)
                     {
-                        if (dbType == OracleDbType.Date) return GetNullableDate;
-                        if (dbType == OracleDbType.TimeStamp) return GetNullableTimeStamp;
+                        if (columnType == OracleDbType.Date) return GetNullableDate;
+                        if (columnType == OracleDbType.TimeStamp) return GetNullableTimeStamp;
 
-                        var nullableType = clrType.GetGenericArguments()[0];
+                        var nullableType = type.GetGenericArguments()[0];
                         if (nullableType.IsEnum) return GetNullableEnum_T.MakeGenericMethod(nullableType);
                         if (nullableType == typeof(char)) return GetNullableChar;
                         if (nullableType == typeof(short)) return GetNullableInt16;
@@ -110,16 +108,16 @@ namespace Linq2Oracle
                         if (nullableType == typeof(double)) return GetNullableDouble;
                     }
 
-                    if (dbType == OracleDbType.Date) return GetOraDate;
-                    if (dbType == OracleDbType.TimeStamp) return GetOraTimeStamp;
-                    if (clrType.IsEnum) return GetEnum_T.MakeGenericMethod(clrType);
-                    if (clrType == typeof(short)) return GetInt16;
-                    if (clrType == typeof(int)) return GetInt32;
-                    if (clrType == typeof(long)) return GetInt64;
-                    if (clrType == typeof(float)) return GetFloat;
-                    if (clrType == typeof(double)) return GetDouble;
+                    if (columnType == OracleDbType.Date) return GetOraDate;
+                    if (columnType == OracleDbType.TimeStamp) return GetOraTimeStamp;
+                    if (type.IsEnum) return GetEnum_T.MakeGenericMethod(type);
+                    if (type == typeof(short)) return GetInt16;
+                    if (type == typeof(int)) return GetInt32;
+                    if (type == typeof(long)) return GetInt64;
+                    if (type == typeof(float)) return GetFloat;
+                    if (type == typeof(double)) return GetDouble;
 
-                    return GetUnknow_T.MakeGenericMethod(clrType);
+                    return GetUnknow_T.MakeGenericMethod(type);
                 });
 
         static MethodInfo GetInternalMethod(this Type type, string method) => type.GetMethod(method, BindingFlags.Static | BindingFlags.NonPublic);

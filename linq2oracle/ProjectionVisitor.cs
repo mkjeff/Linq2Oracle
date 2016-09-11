@@ -26,7 +26,7 @@ namespace Linq2Oracle
         static readonly ExpressionCache<Projection> _Cache = new ExpressionCache<Projection>();
 
         internal static Projection Create<T, TResult>(Expression<Func<T, TResult>> selector, string file, int line) where T : DbEntity 
-            => _Cache.Get(selector, key => new Projection(Table<T>.Info, key));
+            => _Cache.Get(selector, key => new Projection(Table.GetTableInfo(typeof(T)), key));
 #endif
         public readonly string SelectSql;
         public readonly Delegate Projector;
