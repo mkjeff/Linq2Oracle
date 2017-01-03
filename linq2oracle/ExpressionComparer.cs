@@ -38,8 +38,7 @@ namespace Linq2Oracle
         {
             if (x == y) return 0;
 
-            int result;
-            if (this.CompareNull(x, y, out result)) return result;
+            if (this.CompareNull(x, y, out var result)) return result;
 
             result = x.GetHashCode() - y.GetHashCode();
             if (result != 0) return result;
@@ -54,8 +53,7 @@ namespace Linq2Oracle
         {
             if (x == y) return 0;
 
-            int result;
-            if (this.CompareNull(x, y, out result)) return result;
+            if (this.CompareNull(x, y, out var result)) return result;
 
             result = x.GetHashCode() - y.GetHashCode();
             if (result != 0) return result;
@@ -74,8 +72,7 @@ namespace Linq2Oracle
 
         public virtual int Compare(Expression x, Expression y)
         {
-            int result;
-            if (this.CompareNull(x, y, out result)) return result;
+            if (this.CompareNull(x, y, out var result)) return result;
 
             result = this.CompareType(x.GetType(), y.GetType());
             if (result != 0) return result;
@@ -226,8 +223,7 @@ namespace Linq2Oracle
 
         protected virtual int CompareNew(NewExpression x, NewExpression y)
         {
-            int result;
-            if (this.CompareNull(x.Members, y.Members, out result)) return result;
+            if (this.CompareNull(x.Members, y.Members, out var result)) return result;
 
             result = this.CompareMemberInfo(x.Constructor, y.Constructor);
             if (result != 0) return result;

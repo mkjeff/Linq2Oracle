@@ -9,7 +9,7 @@ namespace Linq2Oracle.LinqPad
 {
     static class CustomMemberProvider
     {
-        static readonly Dictionary<Type, System.Tuple<string[], Type[], Func<object, object>[]>> _cache = new Dictionary<Type, System.Tuple<string[], Type[], Func<object, object>[]>>();
+        static readonly Dictionary<Type, (string[], Type[], Func<object, object>[])> _cache = new Dictionary<Type, (string[], Type[], Func<object, object>[])>();
         static CustomMemberProvider() { }
 
         static readonly MethodInfo propGetterMaker = typeof(CustomMemberProvider).GetMethod("GetPropertyGetterDelegate", BindingFlags.Static | BindingFlags.NonPublic);
@@ -37,27 +37,27 @@ namespace Linq2Oracle.LinqPad
                 property.PropertyType.IsValueType
                 ? Expression.Convert(entityProperty, typeof(object))
                 : (Expression)entityProperty, entity);
-            return (Func<object, object>)lambda.Compile();
+            return lambda.Compile();
         }
 
         internal static ICustomMemberProvider GetProvider(DbEntity entity)
         {
             var type = entity.GetType();
-            System.Tuple<string[], Type[], Func<object, object>[]> typeinfo = null;
-            if (!_cache.TryGetValue(type, out typeinfo))
+            if (!_cache.TryGetValue(type, out var typeinfo))
             {
-                var props = (from p in type.GetProperties()
-                             let attr = p.GetCustomAttribute<ColumnAttribute>()
-                             where attr != null
-                             orderby attr.IsPrimarykey descending, p.Name
-                             select new
-                             {
-                                 Name = p.Name + (attr.IsPrimarykey ? " *" : string.Empty),
-                                 p.PropertyType,
-                                 //PropertyGetter = GetPropertyGetter(p)
-                                 PropertyGetter = (Func<object, object>)propGetterMaker.MakeGenericMethod(p.DeclaringType, p.PropertyType).Invoke(null, new object[] { p })
-                             }).ToArray();
-                typeinfo = System.Tuple.Create(
+                var props =
+                    (from p in type.GetProperties()
+                     let attr = p.GetCustomAttribute<ColumnAttribute>()
+                     where attr != null
+                     orderby attr.IsPrimarykey descending, p.Name
+                     select new
+                     {
+                         Name = p.Name + (attr.IsPrimarykey ? " *" : string.Empty),
+                         p.PropertyType,
+                         //PropertyGetter = GetPropertyGetter(p)
+                         PropertyGetter = (Func<object, object>)propGetterMaker.MakeGenericMethod(p.DeclaringType, p.PropertyType).Invoke(null, new object[] { p })
+                     }).ToArray();
+                typeinfo = (
                     props.Select(p => p.Name).ToArray(),
                     props.Select(p => p.PropertyType).ToArray(),
                     props.Select(p => p.PropertyGetter).ToArray());
@@ -67,18 +67,18 @@ namespace Linq2Oracle.LinqPad
         }
         sealed class EntityCustomMemberProvider : ICustomMemberProvider
         {
-            readonly System.Tuple<string[], Type[], Func<object, object>[]> _typeinfo;
+            readonly (string[] names, Type[] types, Func<object, object>[] getters) _typeinfo;
             readonly DbEntity _obj;
 
-            internal EntityCustomMemberProvider(System.Tuple<string[], Type[], Func<object, object>[]> typeinfo, DbEntity obj)
+            internal EntityCustomMemberProvider((string[] names, Type[] types, Func<object, object>[] getters) typeinfo, DbEntity obj)
             {
                 _typeinfo = typeinfo;
                 _obj = obj;
             }
 
-            public IEnumerable<string> GetNames() { return _typeinfo.Item1; }
-            public IEnumerable<Type> GetTypes() { return _typeinfo.Item2; }
-            public IEnumerable<object> GetValues() { return _typeinfo.Item3.Select(f => f(_obj)); }
+            public IEnumerable<string> GetNames() { return _typeinfo.names; }
+            public IEnumerable<Type> GetTypes() { return _typeinfo.types; }
+            public IEnumerable<object> GetValues() { return _typeinfo.getters.Select(f => f(_obj)); }
         }
     }
 }

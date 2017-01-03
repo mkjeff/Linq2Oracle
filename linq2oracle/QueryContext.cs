@@ -756,7 +756,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<string> MaxAsync(Func<C, DbString> selector)
+        public ValueTask<string> MaxAsync(Func<C, DbString> selector)
             => _AsyncAggregateFunction<string>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
 
         /// <summary>
@@ -764,7 +764,7 @@ namespace Linq2Oracle
         /// </summary>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<string> MinAsync(Func<C, DbString> selector)
+        public ValueTask<string> MinAsync(Func<C, DbString> selector)
             => _AsyncAggregateFunction<string>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
 
         #endregion
@@ -775,7 +775,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
+        public ValueTask<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
             => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
 
         /// <summary>
@@ -784,7 +784,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
+        public ValueTask<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue>> selector) where TValue : struct
             => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
 
         /// <summary>
@@ -793,7 +793,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
+        public ValueTask<TValue?> MaxAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
             => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MAX", selector(ColumnDefine))));
 
         /// <summary>
@@ -802,7 +802,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
+        public ValueTask<TValue?> MinAsync<TValue>(Func<C, IDbExpression<TValue?>> selector) where TValue : struct
             => _AsyncAggregateFunction<TValue?>(_AggregateFunctionExpression(Function.Call("MIN", selector(ColumnDefine))));
 
         #endregion
@@ -813,7 +813,7 @@ namespace Linq2Oracle
         /// <typeparam name="TNumber"></typeparam>
         /// <param name="selector"></param>
         /// <returns></returns>
-        public Task<decimal?> SumAsync<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
+        public ValueTask<decimal?> SumAsync<TNumber>(Func<C, TNumber> selector) where TNumber : IDbNumber
             => _AsyncAggregateFunction<decimal?>(_AggregateFunctionExpression(Function.Call("SUM", selector(ColumnDefine))));
 
         #endregion
@@ -832,7 +832,7 @@ namespace Linq2Oracle
             }
         }
 
-        async Task<TValue> _AsyncAggregateFunction<TValue>(Action<SqlContext> exprGen)
+        async ValueTask<TValue> _AsyncAggregateFunction<TValue>(Action<SqlContext> exprGen)
         {
             var cc = _closure;
             cc.Orderby = EmptyList<SortDescription>.Instance;
@@ -945,7 +945,7 @@ namespace Linq2Oracle
         /// <returns></returns>
         public DbNumber<long> LongCount(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCount();
 
-        async Task<TValue> _CountAsync<TValue>() where TValue : struct
+        async ValueTask<TValue> _CountAsync<TValue>() where TValue : struct
         {
             var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             var selection = _projection.Value.SelectSql;
@@ -976,13 +976,13 @@ namespace Linq2Oracle
             }
         }
 
-        public Task<int> CountAsync() => _CountAsync<int>();
+        public ValueTask<int> CountAsync() => _CountAsync<int>();
 
-        public Task<int> CountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).CountAsync();
+        public ValueTask<int> CountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).CountAsync();
 
-        public Task<long> LongCountAsync() => _CountAsync<long>();
+        public ValueTask<long> LongCountAsync() => _CountAsync<long>();
 
-        public Task<long> LongCountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCountAsync();
+        public ValueTask<long> LongCountAsync(Func<C, SqlBoolean> predicate) => this.Where(predicate).LongCountAsync();
 
         #endregion
         #region Any / IsEmpty
@@ -1013,7 +1013,7 @@ namespace Linq2Oracle
 
         public BooleanContext Any(Func<C, SqlBoolean> predicate) => this.Where(predicate).Any();
 
-        public async Task<bool> AnyAsync()
+        public async ValueTask<bool> AnyAsync()
         {
             var cc = _closure; cc.Orderby = EmptyList<SortDescription>.Instance;
             using (var cmd = Db.CreateCommand())
@@ -1027,7 +1027,7 @@ namespace Linq2Oracle
             }
         }
 
-        public Task<bool> AnyAsync(Func<C, SqlBoolean> predicate) => Where(predicate).AnyAsync();
+        public ValueTask<bool> AnyAsync(Func<C, SqlBoolean> predicate) => Where(predicate).AnyAsync();
 
         public BooleanContext IsEmpty() => !Any();
         #endregion
@@ -1062,7 +1062,7 @@ namespace Linq2Oracle
                 }));
         }
 
-        public async Task<bool> AllAsync(Func<C, SqlBoolean> predicate)
+        public async ValueTask<bool> AllAsync(Func<C, SqlBoolean> predicate)
         {
             var filter = predicate(ColumnDefine);
             if (!filter.IsVaild)

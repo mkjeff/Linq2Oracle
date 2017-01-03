@@ -54,7 +54,7 @@ namespace Linq2Oracle
             => new SqlBoolean(sql => sql.Append(@this).Append(" IN (").AppendQuery(subquery).Append(')'));
         #endregion
         #region Where (Column1,Column2) In (...)
-        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, Tuple<T1, T2>[] values)
+        public static SqlBoolean In<E1, E2, T1, T2>(this ValueTuple<E1, E2> @this, ValueTuple<T1, T2>[] values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             => new SqlBoolean(sql =>
@@ -83,12 +83,12 @@ namespace Linq2Oracle
                 sql.Append(")");
             });
 
-        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IEnumerable<Tuple<T1, T2>> values)
+        public static SqlBoolean In<E1, E2, T1, T2>(this ValueTuple<E1, E2> @this, IEnumerable<ValueTuple<T1, T2>> values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2> 
             => @this.In(values.ToArray());
 
-        public static SqlBoolean In<E1, E2, T1, T2>(this Tuple<E1, E2> @this, IQueryContext<Tuple<T1, T2>> subquery)
+        public static SqlBoolean In<E1, E2, T1, T2>(this ValueTuple<E1, E2> @this, IQueryContext<ValueTuple<T1, T2>> subquery)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2> 
             => new SqlBoolean(sql =>
@@ -99,7 +99,7 @@ namespace Linq2Oracle
                    .Append(')'));
         #endregion
         #region Where (Column1,Column2,Column3) In (...)
-        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, Tuple<T1, T2, T3>[] values)
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this ValueTuple<E1, E2, E3> @this, ValueTuple<T1, T2, T3>[] values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             where E3 : IDbExpression<T3>
@@ -133,13 +133,13 @@ namespace Linq2Oracle
                 sql.Append(')');
             });
 
-        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IEnumerable<Tuple<T1, T2, T3>> values)
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this ValueTuple<E1, E2, E3> @this, IEnumerable<ValueTuple<T1, T2, T3>> values)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             where E3 : IDbExpression<T3> 
             => @this.In(values.ToArray());
 
-        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this Tuple<E1, E2, E3> @this, IQueryContext<Tuple<T1, T2, T3>> subquery)
+        public static SqlBoolean In<E1, E2, E3, T1, T2, T3>(this ValueTuple<E1, E2, E3> @this, IQueryContext<ValueTuple<T1, T2, T3>> subquery)
             where E1 : IDbExpression<T1>
             where E2 : IDbExpression<T2>
             where E3 : IDbExpression<T3>

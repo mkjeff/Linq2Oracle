@@ -25,20 +25,12 @@ namespace Linq2Oracle.LinqPad
             };
 
         [Obsolete]
-        public override IEnumerable<string> GetNamespacesToAdd()
-        {
-            return new string[]{
-				"Linq2Oracle",
-			};
-        }
+        public override IEnumerable<string> GetNamespacesToAdd() => new string[]{
+                "Linq2Oracle",
+            };
 
-        public override ICustomMemberProvider GetCustomDisplayMemberProvider(object objectToWrite)
-        {
-            var entity = objectToWrite as DbEntity;
-            if (entity != null)
-                return CustomMemberProvider.GetProvider(entity);
-            return base.GetCustomDisplayMemberProvider(objectToWrite);
-        }
+        public override ICustomMemberProvider GetCustomDisplayMemberProvider(object objectToWrite) =>
+            objectToWrite is DbEntity entity ? CustomMemberProvider.GetProvider(entity) : base.GetCustomDisplayMemberProvider(objectToWrite);
 
         public override void PreprocessObjectToWrite(ref object objectToWrite, ObjectGraphInfo info)
         {
@@ -49,7 +41,7 @@ namespace Linq2Oracle.LinqPad
                 objectToWrite = Activator.CreateInstance(typeof(GroupContextWrapper<,,,>).MakeGenericType(type.GetGenericArguments()), objectToWrite);
         }
 
-        public override bool DisallowQueryDisassembly { get { return true; } }
+        public override bool DisallowQueryDisassembly => true;
 
         public override System.Data.Common.DbProviderFactory GetProviderFactory(IConnectionInfo cxInfo) 
             => new OracleClientFactory();
@@ -77,8 +69,8 @@ namespace Linq2Oracle.LinqPad
         public override void InitializeContext(IConnectionInfo cxInfo, object context, QueryExecutionManager executionManager)
         {
             // If the data context happens to be a LINQ to SQL DataContext, we can look up the SQL translation window.
-            var l2s = context as OracleDB;
-            if (l2s != null) l2s.Log = executionManager.SqlTranslationWriter;
+            if (context is OracleDB l2s)
+                l2s.Log = executionManager.SqlTranslationWriter;
         }
 
         public override List<ExplorerItem> GetSchema(IConnectionInfo cxInfo, Type customType)

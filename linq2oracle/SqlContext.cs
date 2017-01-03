@@ -26,8 +26,7 @@ namespace Linq2Oracle
 
         public string GetAlias(IQueryContext query)
         {
-            string alias = null;
-            if (_alias.TryGetValue(query.OriginalSource, out alias))
+            if (_alias.TryGetValue(query.OriginalSource, out var alias))
                 return alias;
             alias = "t" + _alias.Count;
             _alias.Add(query.OriginalSource, alias);

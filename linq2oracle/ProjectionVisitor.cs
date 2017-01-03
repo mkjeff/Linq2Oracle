@@ -74,8 +74,7 @@ namespace Linq2Oracle
                 return base.VisitMember(m);
 
             var c = _tableInfo.DbColumnMap[m.Member.Name];
-            Expression expr;
-            if (_valueGetters.TryGetValue(c.ColumnName, out expr))
+            if (_valueGetters.TryGetValue(c.ColumnName, out var expr))
                 return expr;
 
             //append select column

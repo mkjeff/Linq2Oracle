@@ -69,8 +69,7 @@ namespace Linq2Oracle
             if (m.Expression == null)
                 return base.VisitMember(m);
 
-            Expression expr = null;
-            if (_valueGetters.TryGetValue(m.Member, out expr))
+            if (_valueGetters.TryGetValue(m.Member, out var expr))
                 return expr;
 
             // select 整個 Key 當作輸出 而不是存取 Key.Property,
@@ -99,8 +98,7 @@ namespace Linq2Oracle
                 return base.VisitMethodCall(m);
 
             string key = m.ToString();
-            Expression expr = null;
-            if (_valueGetters.TryGetValue(key, out expr))
+            if (_valueGetters.TryGetValue(key, out var expr))
                 return expr;
 
             DbColumn c = null;
@@ -201,8 +199,7 @@ namespace Linq2Oracle
                     //nex.Members[i].DeclaringType.GetProperty(nex.Members[i].Name.Substring(nex.Members[i].Name.IndexOf('_') + 1));
                     var pi = (PropertyInfo)nex.Members[i];
 
-                    Expression getter = null;
-                    if (valueGetterMap.TryGetValue(pi, out getter))
+                    if (valueGetterMap.TryGetValue(pi, out var getter))
                     {
                         yield return getter;
                         continue;
@@ -227,8 +224,7 @@ namespace Linq2Oracle
                 if (m.Expression.Type != Lambda.Parameters[0].Type)
                     throw new DalException(DbErrorCode.E_DB_NOT_SUPPORT_OPERATOR, "不支援" + m);
 
-                Expression expr = null;
-                if (valueGetterMap.TryGetValue(m.Member, out expr))
+                if (valueGetterMap.TryGetValue(m.Member, out var expr))
                     return expr;
                 var c = tableInfo.DbColumnMap[m.Member.Name];
                 // reader.GetOraXXX(index); extension method

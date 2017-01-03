@@ -19,7 +19,7 @@ namespace Linq2Oracle
         /// key: ColumnIndex, value: originalValue(db value)
         /// </summary>
         [NonSerialized]
-        SortedList<int, object> _changedMap = _EmptyChangeMap;//有欄位變更才初始化
+        SortedList<int, object> _changedMap = _EmptyChangeMap;
 
         [OnDeserialized]
         void Init(StreamingContext context)
@@ -38,8 +38,7 @@ namespace Linq2Oracle
 
             var tableInfo = Table.GetTableInfo(this.GetType());
 
-            DbColumn c;
-            if (!tableInfo.DbColumnMap.TryGetValue(columnName, out c))
+            if (!tableInfo.DbColumnMap.TryGetValue(columnName, out var c))
                 return;
 
             if (_changedMap == _EmptyChangeMap)

@@ -19,14 +19,14 @@ namespace Linq2Oracle
                 throw new ArgumentNullException(nameof(enumerableFactory));
 
             return Using_(resourceFactory, enumerableFactory);
-        }
 
-        private static IEnumerable<TSource> Using_<TSource, TResource>(Func<TResource> resourceFactory, Func<TResource, IEnumerable<TSource>> enumerableFactory) where TResource : IDisposable
-        {
-            using (var res = resourceFactory())
-                foreach (var item in enumerableFactory(res))
-                    yield return item;
-        }
+            IEnumerable<TSource> Using_(Func<TResource> factory, Func<TResource, IEnumerable<TSource>> selector)
+            {
+                using (var res = factory())
+                    foreach (var item in selector(res))
+                        yield return item;
+            }
+        }        
 
         public static bool IsEmpty<TSource>(this IEnumerable<TSource> source)
         {

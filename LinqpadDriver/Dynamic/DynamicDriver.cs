@@ -82,8 +82,8 @@ namespace Linq2Oracle.LinqPad
         public override void InitializeContext(IConnectionInfo cxInfo, object context, QueryExecutionManager executionManager)
         {
             // If the data context happens to be a LINQ to SQL DataContext, we can look up the SQL translation window.
-            var l2s = context as OracleDB;
-            if (l2s != null) l2s.Log = executionManager.SqlTranslationWriter;
+            if (context is OracleDB l2s)
+                l2s.Log = executionManager.SqlTranslationWriter;
         }
 
         public override void DisplayObjectInGrid(object objectToDisplay, GridOptions options)
